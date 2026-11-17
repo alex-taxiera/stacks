@@ -75,6 +75,8 @@ export const releaseNpm: Layer = (ctx) => {
           "  `library_version`, publishes to npm with provenance and makes a GitHub release. Never",
           "  edit `version` by hand. Publishing uses npm trusted publishing: add this repo and workflow",
           `  as a trusted publisher of \`${pkg}\` on npmjs.com once, before the first release.`,
+          `  To cut one, load the \`release-${name}\` skill (\`.agents/skills/release-${name}\`): it has every`,
+          "  step, check and recovery.",
         ].join("\n"),
       },
     ],

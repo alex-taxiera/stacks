@@ -39,6 +39,7 @@ concurrency:
 env:
   HUSKY: 0
   TAG_PREFIX: cli@v
+  PACKAGE: "@alex-taxiera/stacks"
   PACKAGE_DIR: packages/cli
 
 jobs:
@@ -66,7 +67,8 @@ jobs:
           set -euo pipefail
           PREVIOUS="$(git tag --list "${TAG_PREFIX}*" --sort=-v:refname | head -n 1)"
           BASE="${PREVIOUS#"$TAG_PREFIX"}"
-          BASE="${BASE:-0.0.0}"
+          # No tag yet: count on from package.json, which a first publish by hand has set.
+          BASE="${BASE:-$(jq -r .version "$PACKAGE_DIR/package.json")}"
           IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE"
           case "$BUMP" in
             major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
@@ -78,6 +80,11 @@ jobs:
           TAG="${TAG_PREFIX}${VERSION}"
           if git rev-parse "$TAG" > /dev/null 2>&1; then
             echo "Tag $TAG already exists" >&2
+            exit 1
+          fi
+          # npm never takes a version twice, so stop before anything is committed or tagged.
+          if [ -n "$(cd "$PACKAGE_DIR" && npm view "${PACKAGE}@${VERSION}" version 2> /dev/null)" ]; then
+            echo "${PACKAGE}@${VERSION} is already on npm" >&2
             exit 1
           fi
           echo "Previous release: ${PREVIOUS:-none}. This release: $TAG"
@@ -112,7 +119,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "$PACKAGE_DIR"
-          git commit -m "chore(cli): release $TAG"
+          # A new run after a failed publish finds the version already committed.
+          git diff --cached --quiet || git commit -m "chore(cli): release $TAG"
           git tag -a "$TAG" -m "Release $TAG"
           if ! git push origin HEAD; then
             echo "::error::Couldn't push to the default branch. If it's protected, let github-actions[bot] bypass the rules." >&2

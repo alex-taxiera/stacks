@@ -153,6 +153,11 @@ describe("new --stack cli", () => {
     expect(overlay.changed.some((changed) => changed.startsWith("packages/ui/"))).toBe(false);
     expect(overlay.changed).toContain("packages/cli/skills/greeter/SKILL.md");
     expect(overlay.changed).toContain(".github/workflows/release-cli.yml");
+    expect(overlay.changed).toContain(".agents/skills/release-cli/SKILL.md");
+    const releaseSkill = await read(".agents/skills/release-cli/SKILL.md");
+    expect(releaseSkill).toContain("name: release-cli");
+    expect(releaseSkill).toContain("pnpm view @me/greeter dist-tags");
+    expect(await read("AGENTS.md")).toContain("load the `release-cli` skill");
     expect(await read(".oxlintrc.json")).not.toContain("no-restricted-imports");
     const mcp = await readJson<{ mcpServers: Record<string, unknown> }>(".agents/mcp.json");
     expect(mcp.mcpServers).toEqual({});

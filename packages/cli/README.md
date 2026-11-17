@@ -80,6 +80,10 @@ the skill too. `skills:check` (in CI and the release workflow) validates it and 
 falls behind the package's version. stacks does the same: it ships the `stacks` skill, for agents
 working in a repo it made.
 
+Every `tauri` and `cli` app also gets a release skill in the repo, `.agents/skills/release-<name>`.
+It walks an agent through a release: what's changed since the last one, the version, notes written
+for users, the workflow run, checking what went out, and recovering from a run that failed partway.
+
 ## Keeping versions current
 
 Templates never name a version. Layers list package names, and workflows say
