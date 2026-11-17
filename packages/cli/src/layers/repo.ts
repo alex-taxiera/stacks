@@ -65,7 +65,12 @@ export const repo: Layer = (ctx) => ({
     },
   },
   post: [
-    { title: "Installing dependencies", command: "pnpm", args: ["install"] },
+    {
+      title: "Installing dependencies",
+      command: "pnpm",
+      // pnpm turns on --frozen-lockfile when CI is set; a new repo has no lockfile yet.
+      args: ["install", "--no-frozen-lockfile"],
+    },
     {
       title: "Syncing agent config",
       command: "pnpm",

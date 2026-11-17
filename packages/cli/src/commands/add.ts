@@ -112,7 +112,12 @@ export async function addCommand(argv: string[]) {
   await runPost(
     root,
     [
-      { title: "Installing dependencies", command: "pnpm", args: ["install"] },
+      {
+        title: "Installing dependencies",
+        command: "pnpm",
+        // pnpm turns on --frozen-lockfile when CI is set; adding an app always changes the lockfile.
+        args: ["install", "--no-frozen-lockfile"],
+      },
       ...post,
       { title: "Formatting", command: "pnpm", args: ["run", "format"], needsInstall: true },
     ],
