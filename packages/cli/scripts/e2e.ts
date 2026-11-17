@@ -147,6 +147,8 @@ function runCase(name: string, testCase: Case) {
     if (!first) throw new Error(`${name} has no commands`);
     sh("node", [cli, ...first, repo, ...versions, "--no-git", "--yes"], parent);
     for (const command of rest) sh("node", [cli, ...command, ...versions], repo);
+    // A fresh scaffold is what `update` would make it.
+    sh("node", [cli, "update", "--check", ...versions], repo);
 
     // What the generated repo's CI runs, in the same order.
     const setup = ["-r", "--if-present", "run", "test:setup"];

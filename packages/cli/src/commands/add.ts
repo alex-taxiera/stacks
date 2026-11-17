@@ -8,6 +8,7 @@ import { Overlay } from "../compose/overlay.ts";
 import {
   composeApp,
   ensurePnpm,
+  findRoot,
   loadVersions,
   makeApp,
   parseVersionsMode,
@@ -29,17 +30,6 @@ Options:
   --no-install          Write the files only
   --cwd <dir>           The repo's root (default: here)
 `;
-
-/** The nearest directory at or above `start` with a `.stacks.json`. */
-function findRoot(start: string): string | undefined {
-  let dir = path.resolve(start);
-  while (true) {
-    if (existsSync(path.join(dir, STACKS_FILE))) return dir;
-    const parent = path.dirname(dir);
-    if (parent === dir) return undefined;
-    dir = parent;
-  }
-}
 
 export async function addCommand(argv: string[]) {
   const { values, positionals } = parseArgs({

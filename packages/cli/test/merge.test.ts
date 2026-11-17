@@ -30,7 +30,9 @@ More of the user's text.
 describe("upsertBlock", () => {
   it("appends a block to its region and keeps the text around it", () => {
     const once = upsertBlock(AGENTS, "apps", "app:web", "- web");
-    expect(once).toContain("<!-- stacks:block:app:web -->\n- web\n<!-- /stacks:block:app:web -->");
+    expect(once).toContain(
+      "<!-- stacks:block:app:web -->\n\n- web\n\n<!-- /stacks:block:app:web -->",
+    );
     expect(once).toContain("Hand-written intro.");
     expect(once).toContain("More of the user's text.");
   });

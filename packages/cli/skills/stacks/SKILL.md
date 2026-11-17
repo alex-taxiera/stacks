@@ -13,6 +13,7 @@ sources:
   - "packages/cli/src/stacks.ts"
   - "packages/cli/src/commands/add.ts"
   - "packages/cli/src/commands/new.ts"
+  - "packages/cli/src/commands/update.ts"
   - "packages/cli/src/compose/merge.ts"
   - "packages/cli/src/layers/**"
 ---
@@ -55,6 +56,18 @@ pnpm dlx @alex-taxiera/stacks add cli tool --package-name @me/tool
 
 Run `add` from anywhere inside the repo, then review `git diff` and commit. It never overwrites a
 file that exists, and it fails if the name is taken.
+
+## Bring the managed parts up to date with `stacks update`
+
+```sh
+pnpm dlx @alex-taxiera/stacks update           # rewrite them, then pnpm run format and commit
+pnpm dlx @alex-taxiera/stacks update --check   # exit 1 if anything would change
+```
+
+It rewrites AGENTS.md's stacks blocks and `.agents/mcp.json`'s servers as the current stacks
+writes them, for every app in `.stacks.json`. Your text outside the blocks, servers it doesn't
+name, and every other file stay as they are. It also lists catalog entries a major behind the
+known-good versions; moving those is Dependabot's job, or yours.
 
 ## What stacks manages
 

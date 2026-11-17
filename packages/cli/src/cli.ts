@@ -2,6 +2,7 @@
 import { addCommand } from "./commands/add.ts";
 import { listCommand } from "./commands/list.ts";
 import { newCommand } from "./commands/new.ts";
+import { updateCommand } from "./commands/update.ts";
 import { versionsCommand } from "./commands/versions.ts";
 import { CLI_VERSION } from "./paths.ts";
 
@@ -11,6 +12,7 @@ Usage:
   stacks new [dir] [options]        Make a new repo with its first app
   stacks add <stack> <name> [opts]  Add an app to the stacks repo you're in
   stacks list                       Stacks, deploy targets and add-ons
+  stacks update [--check]           Bring the AGENTS.md blocks and MCP servers up to date
   stacks versions [refresh]         The known-good version snapshot
 
 Run any command with --help for its options.
@@ -28,6 +30,9 @@ try {
       break;
     case "list":
       listCommand();
+      break;
+    case "update":
+      await updateCommand(rest);
       break;
     case "versions":
       await versionsCommand(rest);

@@ -9,7 +9,13 @@ import { allActions, allCrates, allImages, allPackages } from "../src/catalog.ts
 import { fillSlots } from "../src/compose/apply.ts";
 import { Overlay } from "../src/compose/overlay.ts";
 import type { AppInfo, StacksFile } from "../src/model.ts";
-import { composeApp, makeApp, readStacksFile } from "../src/scaffold.ts";
+import {
+  composeApp,
+  makeApp,
+  readStacksFile,
+  refreshManaged,
+  staleCatalogEntries,
+} from "../src/scaffold.ts";
 import { STACKS } from "../src/stacks.ts";
 import { readBundledSnapshot } from "../src/versions/snapshot.ts";
 import type { Snapshot } from "../src/versions/types.ts";
@@ -370,5 +376,52 @@ describe("new --stack astro", () => {
     expect(await read("apps/web/wrangler.jsonc")).toContain(
       '"not_found_handling": "single-page-application",',
     );
+  });
+});
+
+describe("update", () => {
+  it("restores managed blocks and servers, and keeps the user's own", async () => {
+    const { file } = await compose(emptyRepo(), web());
+    const agents = await read("AGENTS.md");
+    const edited = agents
+      .replace("a client-only app", "an app someone edited by hand")
+      .replace("## Rules", "## My notes\n\nKeep this.\n\n## Rules");
+    await writeFile(path.join(root, "AGENTS.md"), edited);
+    const mcp = await readJson<{ mcpServers: Record<string, unknown> }>(".agents/mcp.json");
+    mcp.mcpServers.mine = { type: "http", url: "http://localhost:9999/mcp" };
+    delete mcp.mcpServers["storybook-web"];
+    await writeFile(path.join(root, ".agents/mcp.json"), JSON.stringify(mcp));
+
+    const overlay = new Overlay(root);
+    refreshManaged(overlay, readStacksFile(root), versions, "2026-11-17");
+    const next = overlay.read("AGENTS.md") ?? "";
+    expect(next).toContain("a client-only app");
+    expect(next).not.toContain("edited by hand");
+    expect(next).toContain("## My notes\n\nKeep this.");
+    const servers = overlay.readJson<{ mcpServers: Record<string, unknown> }>(".agents/mcp.json");
+    expect(Object.keys(servers?.mcpServers ?? {})).toEqual(
+      expect.arrayContaining(["mine", "storybook-web", "chakra-ui"]),
+    );
+    expect(file.apps).toHaveLength(1);
+  });
+
+  it("changes nothing in a repo it just made", async () => {
+    await compose(emptyRepo(), web());
+    const before = await read("AGENTS.md");
+    const overlay = new Overlay(root);
+    refreshManaged(overlay, readStacksFile(root), versions, "2026-11-17");
+    expect(overlay.read("AGENTS.md")).toBe(before);
+  });
+
+  it("reports catalog entries a major behind the known-good versions", async () => {
+    await compose(emptyRepo(), web());
+    const workspace = await read("pnpm-workspace.yaml");
+    await writeFile(
+      path.join(root, "pnpm-workspace.yaml"),
+      workspace.replace(/^ {2}react: .*$/m, "  react: ^18.0.0"),
+    );
+    expect(staleCatalogEntries(new Overlay(root), versions)).toEqual([
+      `react: the catalog has ^18.0.0; the known-good version is ${versions.npm.react}`,
+    ]);
   });
 });

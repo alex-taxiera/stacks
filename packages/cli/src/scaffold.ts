@@ -1,13 +1,15 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import * as p from "@clack/prompts";
+import semver from "semver";
 
 import { applyLayers, type ApplyResult } from "./compose/apply.ts";
+import { upsertBlock } from "./compose/merge.ts";
 import { Overlay } from "./compose/overlay.ts";
 import { leftoverTokens } from "./compose/tokens.ts";
 import { capture, run } from "./exec.ts";
-import type { AppInfo, Ctx, PostStep, StacksFile, UiInfo } from "./model.ts";
+import type { AppInfo, Ctx, Layer, McpServer, PostStep, StacksFile, UiInfo } from "./model.ts";
 import { CLI_VERSION } from "./paths.ts";
 import {
   appLayers,
@@ -95,6 +97,70 @@ interface LegacyStacksFile {
   repo: StacksFile["repo"] & { uiPackage?: string };
   ui?: Partial<UiInfo>;
   apps: (Omit<AppInfo, "kind" | "dir" | "packageName"> & Partial<AppInfo>)[];
+}
+
+/** The nearest directory at or above `start` with a `.stacks.json`. */
+export function findRoot(start: string): string | undefined {
+  let dir = path.resolve(start);
+  while (true) {
+    if (existsSync(path.join(dir, STACKS_FILE))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) return undefined;
+    dir = parent;
+  }
+}
+
+/** Every layer the repo was made from, with the context each ran in, in the order they ran. */
+function layersOf(file: StacksFile, versions: Snapshot, today: string): [Ctx, Layer[]][] {
+  const base: Ctx = { repo: file.repo, ui: file.ui, versions, today };
+  const runs: [Ctx, Layer[]][] = [[base, REPO_LAYERS]];
+  if (file.ui) runs.push([base, [UI_LAYER]]);
+  // The first Rust app made the Cargo workspace, and its layer names that app.
+  const rustApp = file.apps.find((app) => STACKS[app.stack].needsRust);
+  if (rustApp) runs.push([{ ...base, app: rustApp }, [RUST_LAYER]]);
+  for (const app of file.apps) runs.push([{ ...base, app }, appLayers(app)]);
+  return runs;
+}
+
+/**
+ * Rewrites what stacks manages in a repo it made, as the current layers say it: AGENTS.md's
+ * blocks and `.agents/mcp.json`'s servers. It never touches a file the layers only created, and
+ * leaves blocks and servers no layer names (yours, or an app's you removed) alone.
+ */
+export function refreshManaged(
+  overlay: Overlay,
+  file: StacksFile,
+  versions: Snapshot,
+  today: string,
+) {
+  let markdown = overlay.read("AGENTS.md");
+  if (markdown === undefined) throw new Error("AGENTS.md is missing; is this a stacks repo?");
+  const mcp =
+    overlay.readJson<{ mcpServers?: Record<string, McpServer> }>(".agents/mcp.json") ?? {};
+  const servers = { ...mcp.mcpServers };
+  for (const [ctx, layers] of layersOf(file, versions, today)) {
+    for (const layer of layers) {
+      const spec = layer(ctx);
+      for (const block of spec.agents ?? [])
+        markdown = upsertBlock(markdown, block.region, block.id, block.body);
+      Object.assign(servers, spec.mcp);
+    }
+  }
+  overlay.write("AGENTS.md", markdown);
+  overlay.writeJson(".agents/mcp.json", { ...mcp, mcpServers: servers });
+}
+
+/** Catalog entries a major or more behind the snapshot's known-good version. */
+export function staleCatalogEntries(overlay: Overlay, versions: Snapshot): string[] {
+  const workspace = overlay.readYaml<{ catalog?: Record<string, string> }>("pnpm-workspace.yaml");
+  const stale: string[] = [];
+  for (const [name, range] of Object.entries(workspace?.catalog ?? {})) {
+    const known = versions.npm[name];
+    const floor = known ? semver.minVersion(range) : null;
+    if (known && floor && semver.major(known) > semver.major(floor))
+      stale.push(`${name}: the catalog has ${range}; the known-good version is ${known}`);
+  }
+  return stale;
 }
 
 /** Reads `.stacks.json`, including the 0.1.0 shape, where every repo had a UI package. */

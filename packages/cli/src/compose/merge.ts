@@ -48,7 +48,9 @@ export function upsertBlock(markdown: string, region: string, id: string, body: 
     throw new Error(`AGENTS.md has no ${start} … ${end} region`);
   }
   const { open, close } = blockMarkers(id);
-  const block = `${open}\n${body.trimEnd()}\n${close}`;
+  // Blank lines inside the markers, as a Markdown formatter puts them, so formatting doesn't make
+  // a repo look out of date to `stacks update --check`.
+  const block = `${open}\n\n${body.trim()}\n\n${close}`;
   const inner = markdown.slice(startAt + start.length, endAt);
   const openAt = inner.indexOf(open);
   let nextInner: string;

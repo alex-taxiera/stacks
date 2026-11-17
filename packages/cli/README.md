@@ -14,6 +14,7 @@ pnpm dlx @alex-taxiera/stacks new my-repo --stack spa
 cd my-repo
 pnpm dlx @alex-taxiera/stacks add spa docs --deploy gh-pages
 pnpm dlx @alex-taxiera/stacks add cli tool --package-name @me/tool
+pnpm dlx @alex-taxiera/stacks update     # AGENTS.md blocks and MCP servers, as this version writes them
 ```
 
 ## What a generated repo looks like
