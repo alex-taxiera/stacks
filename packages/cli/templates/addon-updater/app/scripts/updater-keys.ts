@@ -8,7 +8,7 @@
 // Back up the key file and its password (both in ~/.tauri). Lose them and installed copies can't
 // be updated: a new key means everyone reinstalls by hand.
 
-import { spawnSync } from "node:child_process";
+import { spawnSync, type SpawnSyncOptions } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -26,13 +26,18 @@ const SECRETS = {
 
 const isWindows = process.platform === "win32";
 
-/** Runs a command (through the shell on Windows, for pnpm.cmd), with `input` on its stdin. */
+/**
+ * Runs a command with `input` on its stdin. Windows needs the shell for pnpm.cmd, and the shell
+ * one quoted command line.
+ */
 function run(command: string, args: string[], input?: string) {
-  const result = spawnSync(command, isWindows ? args.map((arg) => `"${arg}"`) : args, {
+  const options: SpawnSyncOptions = {
     input,
     stdio: [input === undefined ? "inherit" : "pipe", "inherit", "inherit"],
-    shell: isWindows,
-  });
+  };
+  const result = isWindows
+    ? spawnSync([command, ...args.map((arg) => `"${arg}"`)].join(" "), { ...options, shell: true })
+    : spawnSync(command, args, options);
   if (result.status !== 0) throw new Error(`${command} ${args.slice(0, 3).join(" ")} failed`);
 }
 
