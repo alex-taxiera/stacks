@@ -14,7 +14,9 @@
     "skills": "intent list",
     "prepare": "husky",
     "agents:sync": "node scripts/sync-agents.ts",
-    "postinstall": "pnpm run agents:sync"
+    "postinstall": "pnpm run agents:sync",
+    "storybook": "pnpm -r --parallel --no-bail --if-present storybook",
+    "ci-storybook": "pnpm -r --parallel --no-bail --if-present ci-storybook"
   },
   "devDependencies": {
     "@alex-taxiera/stacks": "workspace:*",

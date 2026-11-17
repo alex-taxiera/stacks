@@ -1,0 +1,20 @@
+---
+import { getCollection } from "astro:content";
+
+import { DocList } from "#/components/DocsNav";
+import { PageHeader } from "#/components/PageHeader";
+import Base from "#/layouts/Base.astro";
+import { docHref, sortDocs } from "#/docs";
+
+const docs = sortDocs(await getCollection("docs")).map((doc) => ({
+  href: docHref(doc.id),
+  title: doc.data.title,
+  description: doc.data.description,
+}));
+const lead = "How to make a repo with stacks, grow it, and keep it current.";
+---
+
+<Base title="Docs" description={lead}>
+  <PageHeader title="Docs" lead={lead} />
+  <DocList docs={docs} />
+</Base>

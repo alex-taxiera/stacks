@@ -1,0 +1,38 @@
+---
+import { Features } from "#/components/Features";
+import { Hero } from "#/components/Hero";
+import { InstallCommand } from "#/components/InstallCommand";
+import { Section } from "#/components/Section";
+import { AddonTable, StackTable } from "#/components/StackTables";
+import Base from "#/layouts/Base.astro";
+import { GITHUB_URL, NEW_COMMAND } from "#/site-config";
+import { addonRows, stackRows } from "#/stacks-data";
+
+const actions = [
+  { href: "/docs/getting-started/", label: "Get started" },
+  { href: GITHUB_URL, label: "GitHub" },
+];
+---
+
+<Base>
+  <Hero
+    title="New repos that start where your last one left off"
+    lead="stacks scaffolds pnpm workspaces of Chakra UI apps and npm CLIs, with the tooling, agent setup and known-good versions already in place, then keeps adding apps to them."
+    actions={actions}
+  >
+    <InstallCommand command={NEW_COMMAND} client:load />
+  </Hero>
+  <Features />
+  <Section
+    title="Stacks"
+    lead="Start a repo with one, then add more apps and packages to it with stacks add. Each comes with its deploy target's workflow."
+  >
+    <StackTable stacks={stackRows()} />
+  </Section>
+  <Section
+    title="Add-ons"
+    lead="Pass them with --with when you add an app, or pick them from the menu in a terminal."
+  >
+    <AddonTable addons={addonRows()} />
+  </Section>
+</Base>

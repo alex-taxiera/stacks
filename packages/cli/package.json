@@ -11,6 +11,7 @@
     "storybook",
     "tanstack-intent"
   ],
+  "homepage": "https://stacks.taxiera.net",
   "license": "MIT",
   "repository": {
     "type": "git",

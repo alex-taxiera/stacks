@@ -1,0 +1,40 @@
+---
+import { getCollection, render } from "astro:content";
+
+import { DocsLayout } from "#/components/DocsLayout";
+import { Prose } from "#/components/Prose";
+import { AddonTable, StackTable } from "#/components/StackTables";
+import Base from "#/layouts/Base.astro";
+import { docHref, neighbours, sortDocs } from "#/docs";
+import { addonRows, stackRows } from "#/stacks-data";
+
+export async function getStaticPaths() {
+  const sorted = sortDocs(await getCollection("docs"));
+  const links = sorted.map((doc) => ({ href: docHref(doc.id), title: doc.data.title }));
+  return sorted.map((doc) => ({
+    params: { slug: doc.id },
+    props: { doc, links, ...neighbours(sorted, doc.id) },
+  }));
+}
+
+const { doc, links, previous, next } = Astro.props;
+const { Content } = await render(doc);
+const { appendix } = doc.data;
+---
+
+<Base title={doc.data.title} description={doc.data.description}>
+  <DocsLayout
+    title={doc.data.title}
+    description={doc.data.description}
+    docs={links}
+    currentHref={docHref(doc.id)}
+    previous={previous}
+    next={next}
+  >
+    <Prose contained={false}>
+      <Content />
+    </Prose>
+    {appendix === "stacks" && <StackTable stacks={stackRows()} contained={false} />}
+    {appendix === "addons" && <AddonTable addons={addonRows()} contained={false} />}
+  </DocsLayout>
+</Base>
