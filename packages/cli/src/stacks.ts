@@ -12,7 +12,7 @@ import { repo } from "./layers/repo.ts";
 import { spa } from "./layers/spa.ts";
 import { astro } from "./layers/astro.ts";
 import { start } from "./layers/start.ts";
-import { rust, tauri } from "./layers/tauri.ts";
+import { addonUpdater, rust, tauri } from "./layers/tauri.ts";
 import { ui } from "./layers/ui.ts";
 import type { AppInfo, Layer, StackId } from "./model.ts";
 
@@ -119,7 +119,13 @@ export const STACKS: Record<StackId, StackDefinition> = {
       },
     },
     defaultDeploy: "releases",
-    addons: { zustand: ZUSTAND },
+    addons: {
+      zustand: ZUSTAND,
+      updater: {
+        summary: "In-app updates from GitHub Releases, signed with a key kept out of the repo",
+        layer: addonUpdater,
+      },
+    },
     layers: [tauri],
   },
   cli: {

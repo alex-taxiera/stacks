@@ -8,8 +8,8 @@
 //   node scripts/e2e.ts --case spa-multi --keep      keep the scaffold to look at
 
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
@@ -66,7 +66,7 @@ const CASES: Record<string, Case> = {
   // joins. The Rust side is checked as the generated CI checks it.
   tauri: {
     commands: [
-      ["new", "--stack", "tauri", "--with", "zustand"],
+      ["new", "--stack", "tauri", "--with", "zustand,updater"],
       ["add", "tauri", "viewer"],
     ],
     after: [
@@ -136,6 +136,15 @@ function sh(command: string, args: string[], cwd: string) {
     throw new Error(`${command} ${args.join(" ")} exited with ${result.status}`);
 }
 
+/** The updater signing keys a scaffold made in ~/.tauri: test keys, not the user's. */
+function removeScaffoldKeys() {
+  const dir = path.join(homedir(), ".tauri");
+  if (!existsSync(dir)) return;
+  for (const file of readdirSync(dir)) {
+    if (file.includes(".e2e-repo.")) rmSync(path.join(dir, file));
+  }
+}
+
 function runCase(name: string, testCase: Case) {
   const parent = mkdtempSync(path.join(tmpdir(), `stacks-e2e-${name}-`));
   const repo = path.join(parent, "e2e-repo");
@@ -165,6 +174,7 @@ function runCase(name: string, testCase: Case) {
     testCase.verify?.(repo);
     console.log(`\n✔ ${name}`);
   } finally {
+    removeScaffoldKeys();
     if (values.keep) console.log(`Kept ${repo}`);
     else rmSync(parent, { recursive: true, force: true });
   }

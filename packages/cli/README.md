@@ -41,9 +41,15 @@ AGENTS.md, .agents/   agent instructions, skills and MCP servers (Chakra, one St
 | `astro` | Astro: Markdown posts, Chakra through React islands, static HTML         | Cloudflare Workers, GH Pages       |
 
 `stacks list` shows what this version has, with its deploy targets and add-ons. Apps with a UI
-take add-ons with `--with` (a `tauri` app only `zustand`, an `astro` site none yet): `e2e` (Playwright tests of whole flows, with a CI job; a `start`
-app's brings Postgres), `zustand` (a store for state components share) and `sentry` (errors
-and performance from the browser, and from a `start` app's server under Docker).
+take add-ons with `--with`:
+
+- `e2e` (spa, start): Playwright tests of whole flows, with a CI job; a `start` app's brings
+  Postgres.
+- `zustand` (spa, start, tauri): a store for state components share.
+- `sentry` (spa, start): errors and performance from the browser, and from a `start` app's server
+  under Docker.
+- `updater` (tauri): in-app updates from the app's own GitHub release, signed with a key that
+  `pnpm --filter <app> updater:keys` makes in `~/.tauri`; `--secrets` gives it to GitHub.
 
 ## Skills that ship with a CLI
 

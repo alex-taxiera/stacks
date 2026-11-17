@@ -85,7 +85,7 @@ async function scanTemplates(find: (text: string) => string[]): Promise<string[]
   };
   await visit(TEMPLATES_DIR);
   for (const spec of allSpecs()) {
-    for (const name of find(JSON.stringify([spec.yaml, spec.json]))) names.add(name);
+    for (const name of find(JSON.stringify([spec.yaml, spec.json, spec.slots]))) names.add(name);
   }
   return [...names].toSorted();
 }

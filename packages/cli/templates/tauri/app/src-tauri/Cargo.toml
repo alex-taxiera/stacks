@@ -18,4 +18,6 @@ app-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tauri = { version = "__CRATE[tauri]__", features = [] }
+tauri-plugin-dialog = "__CRATE[tauri-plugin-dialog]__"
 tauri-plugin-opener = "__CRATE[tauri-plugin-opener]__"
+# stacks:slot dependencies

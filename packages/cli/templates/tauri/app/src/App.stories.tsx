@@ -23,6 +23,16 @@ export const Greets: Story = {
   },
 };
 
+export const ChoosesAFile: Story = {
+  beforeEach: () => {
+    mocked(api.chooseFile).mockResolvedValue("C:\\Users\\ada\\notes.txt");
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Choose a file" }));
+    await expect(await canvas.findByText(/You chose C:\\Users\\ada\\notes\.txt/)).toBeVisible();
+  },
+};
+
 export const WhenRustFails: Story = {
   beforeEach: () => {
     mocked(api.greet).mockRejectedValue(new Error("The core is unreachable"));

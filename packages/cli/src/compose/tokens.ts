@@ -33,6 +33,8 @@ export function tokensFor(ctx: Ctx): Record<string, string> {
     tokens.BIN_NAME = ctx.app.packageName.split("/").at(-1) ?? ctx.app.packageName;
     // A Tauri app's Rust library, and its bundle identifier in reverse-domain form.
     tokens.APP_LIB = `${ctx.app.name.replaceAll("-", "_")}_lib`;
+    // The app's name as a constant's, for the names of its secrets.
+    tokens.APP_CONST = ctx.app.name.toUpperCase().replaceAll("-", "_");
     tokens.APP_IDENTIFIER = [
       "io.github",
       identifierSegment(ctx.repo.github.split("/")[0] ?? "app"),

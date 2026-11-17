@@ -425,3 +425,41 @@ describe("update", () => {
     ]);
   });
 });
+
+describe("tauri --with updater", () => {
+  it("points the app at its own updater release and signs release builds", async () => {
+    await compose(
+      emptyRepo(),
+      makeApp(STACKS.tauri, [], { name: "desktop", deploy: "releases", addons: ["updater"] }),
+    );
+    const conf = await readJson<{
+      plugins: { updater: { pubkey: string; endpoints: string[] } };
+    }>("apps/desktop/src-tauri/tauri.conf.json");
+    expect(conf.plugins.updater.endpoints).toEqual([
+      "https://github.com/me/demo/releases/download/desktop-updater/latest.json",
+    ]);
+    expect(await read("apps/desktop/src-tauri/Cargo.toml")).toContain('tauri-plugin-updater = "2"');
+    expect(await read("apps/desktop/src-tauri/src/lib.rs")).toContain(
+      "    let builder = builder\n        .plugin(tauri_plugin_process::init())",
+    );
+    expect(await read("apps/desktop/src/App.tsx")).toContain('  <UpdateButton key="update" />,');
+    const release = await read(".github/workflows/release-desktop.yml");
+    expect(release).toContain(
+      "          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.DESKTOP_UPDATER_KEY }}",
+    );
+    expect(release).toContain("          updaterJsonPreferNsis: true");
+    expect(release).not.toContain("stacks:slot");
+    expect(await read(".github/workflows/updater-desktop.yml")).toContain(
+      "UPDATER: desktop-updater",
+    );
+    expect(await read("apps/desktop/scripts/updater-keys.ts")).toContain(
+      'const SECRET_PREFIX = "DESKTOP";',
+    );
+  });
+
+  it("leaves no updater code in an app without it", async () => {
+    await compose(emptyRepo(), desktop());
+    expect(await read("apps/desktop/src-tauri/src/lib.rs")).not.toMatch(/updater|stacks:slot/);
+    expect(await read("apps/desktop/src/App.tsx")).not.toMatch(/UpdateButton|stacks:slot/);
+  });
+});

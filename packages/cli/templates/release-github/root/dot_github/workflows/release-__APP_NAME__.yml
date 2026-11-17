@@ -75,6 +75,7 @@ jobs:
       - uses: tauri-apps/tauri-action@__ACTION[tauri-apps/tauri-action]__
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # stacks:slot tauri-action-env
         with:
           projectPath: apps/__APP_NAME__
           tauriScript: pnpm tauri
@@ -85,4 +86,6 @@ jobs:
           releaseBody: See the assets below to download and install this version.
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.args }}
+          # Merged over tauri.conf.json for these builds only (src-tauri/tauri.release.conf.json).
+          args: --config src-tauri/tauri.release.conf.json ${{ matrix.args }}
+          # stacks:slot tauri-action-with

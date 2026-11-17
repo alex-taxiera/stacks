@@ -1,6 +1,7 @@
 import { basePreview, resetUi } from "__UI_PKG__/storybook";
 import type { Preview } from "@storybook/react-vite";
 import { mocked, sb } from "storybook/test";
+// stacks:slot imports
 
 import { api } from "../src/api.ts";
 
@@ -9,7 +10,9 @@ import { api } from "../src/api.ts";
 // `mocked(api.x)` in its `beforeEach`.
 sb.mock(import("../src/api.ts"));
 sb.mock(import("@tauri-apps/api/core"));
+sb.mock(import("@tauri-apps/plugin-dialog"));
 sb.mock(import("@tauri-apps/plugin-opener"));
+// stacks:slot mocks
 
 const preview: Preview = {
   ...basePreview,
@@ -17,7 +20,9 @@ const preview: Preview = {
     mocked(api.greet).mockImplementation(async (name) => ({
       message: `Hello, ${name.trim() || "world"}!`,
     }));
+    mocked(api.chooseFile).mockResolvedValue(null);
     mocked(api.openInBrowser).mockResolvedValue();
+    // stacks:slot defaults
     resetUi();
   },
 };

@@ -283,7 +283,7 @@ export async function applyLayers(
     }
   }
 
-  fillSlots(overlay, specs);
+  fillSlots(overlay, specs, ctx);
   return { post, warnings };
 }
 
@@ -293,7 +293,7 @@ const SLOT = /^([ \t]*)(?:\/\/|#) stacks:slot ([\w-]+)[ \t]*$/;
  * Replaces each slot in the files this run wrote with the lines layers gave it, or removes it.
  * A layer that fills a slot no file has fails, so a renamed slot can't drop code silently.
  */
-export function fillSlots(overlay: Overlay, specs: LayerSpec[]) {
+export function fillSlots(overlay: Overlay, specs: LayerSpec[], ctx?: Ctx) {
   const fills = new Map<string, Map<string, string[]>>();
   for (const spec of specs) {
     for (const [file, slots] of Object.entries(spec.slots ?? {})) {
@@ -314,7 +314,10 @@ export function fillSlots(overlay: Overlay, specs: LayerSpec[]) {
       const [, indent = "", name = ""] = match;
       used.add(`${file}#${name}`);
       // The marker's line goes; the lines filling it, if any, take its place and indentation.
-      return (fills.get(file)?.get(name) ?? []).map((fill) => (fill ? indent + fill : fill));
+      // Fills name versions the way templates do (`__CRATE[tauri]__`).
+      return (fills.get(file)?.get(name) ?? []).map((fill) =>
+        fill ? indent + (ctx ? replaceTokens(fill, ctx, file) : fill) : fill,
+      );
     });
     overlay.write(file, filled.join("\n"));
   }
