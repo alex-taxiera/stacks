@@ -1,11 +1,22 @@
 import type { Layer } from "../model.ts";
 
-/** The workspace root: tooling, agent setup, CI. `stacks new` applies it once. */
+/**
+ * The workspace root: tooling, agent setup, CI. `stacks new` applies it once. Nothing here knows
+ * about UI; the `ui` layer adds that with the first app that needs it.
+ */
 export const repo: Layer = (ctx) => ({
   id: "repo",
   packages: {
     root: {
-      devDependencies: ["@types/node", "husky", "lint-staged", "oxfmt", "oxlint", "typescript"],
+      devDependencies: [
+        "@tanstack/intent",
+        "@types/node",
+        "husky",
+        "lint-staged",
+        "oxfmt",
+        "oxlint",
+        "typescript",
+      ],
       scripts: {
         build: "pnpm -r build",
         test: "pnpm -r test",
@@ -14,8 +25,7 @@ export const repo: Layer = (ctx) => ({
         "lint:fix": "oxlint --fix",
         format: "oxfmt",
         "format:check": "oxfmt --check",
-        storybook: "pnpm -r --parallel --no-bail storybook",
-        "ci-storybook": "pnpm -r --parallel --no-bail ci-storybook",
+        skills: "intent list",
         prepare: "husky",
         "agents:sync": "node scripts/sync-agents.ts",
         postinstall: "pnpm run agents:sync",
@@ -33,6 +43,9 @@ export const repo: Layer = (ctx) => ({
           runtime: { name: "node", version: `>=${ctx.versions.node}`, onFail: "warn" },
         },
         engines: { node: `>=${ctx.versions.node}` },
+        // The packages whose skills agents may load with `pnpm exec intent load`. Each layer adds
+        // its own: an app on TanStack Router adds `@tanstack/*`, a CLI here adds itself.
+        intent: { skills: [] },
         "lint-staged": {
           "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}": [
             "oxlint --fix --no-error-on-unmatched-pattern",
@@ -54,39 +67,9 @@ export const repo: Layer = (ctx) => ({
   post: [
     { title: "Installing dependencies", command: "pnpm", args: ["install"] },
     {
-      title: "Adding the Chakra UI agent skills",
-      command: "pnpm",
-      args: [
-        "dlx",
-        "skills",
-        "add",
-        "chakra-ui/chakra-ui",
-        "--skill",
-        "chakra-ui-builder",
-        "--skill",
-        "chakra-ui-refactor",
-        "--skill",
-        "chakra-ui-migrate",
-        "--agent",
-        "universal",
-        "--copy",
-        "--yes",
-      ],
-      needsInstall: true,
-      optional: true,
-      // It clones Chakra's repository, which can stall on a slow network.
-      timeoutMs: 120_000,
-    },
-    {
       title: "Syncing agent config",
       command: "pnpm",
       args: ["run", "agents:sync"],
-      needsInstall: true,
-    },
-    {
-      title: "Generating Chakra theme types",
-      command: "pnpm",
-      args: ["--filter", ctx.repo.uiPackage, "typegen"],
       needsInstall: true,
     },
   ],

@@ -1,22 +1,19 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
 import * as p from "@clack/prompts";
 
 import { Overlay } from "../compose/overlay.ts";
-import type { AppInfo, StacksFile } from "../model.ts";
 import {
   composeApp,
   ensurePnpm,
-  kebab,
   loadVersions,
-  nextPorts,
+  makeApp,
   parseVersionsMode,
+  readStacksFile,
   runPost,
   STACKS_FILE,
-  stacksFileFor,
-  titleCase,
 } from "../scaffold.ts";
 import { isStackId, STACKS } from "../stacks.ts";
 
@@ -24,6 +21,7 @@ const HELP = `stacks add <stack> <name> [options] — add an app to the stacks r
 
 Options:
   --title <text>        The app's title (default: from its name)
+  --package-name <n>    Its package name, such as @me/tool for a published package
   --deploy <target>     Where the app deploys (see \`stacks list\`)
   --with <a,b>          Add-ons (see \`stacks list\`)
   --versions <mode>     known-good (default) | latest | bundled, for new catalog entries
@@ -50,6 +48,7 @@ export async function addCommand(argv: string[]) {
     allowNegative: true,
     options: {
       title: { type: "string" },
+      "package-name": { type: "string" },
       deploy: { type: "string" },
       with: { type: "string" },
       versions: { type: "string" },
@@ -74,14 +73,20 @@ export async function addCommand(argv: string[]) {
     throw new Error(
       `No ${STACKS_FILE} here or above; run this inside a repo made by \`stacks new\`.`,
     );
-  const file = JSON.parse(readFileSync(path.join(root, STACKS_FILE), "utf8")) as StacksFile;
+  const file = readStacksFile(root);
+  const app = makeApp(stack, file.apps, {
+    name: rawName,
+    title: values.title,
+    deploy: values.deploy,
+    addons: values.with
+      ?.split(",")
+      .map((addon) => addon.trim())
+      .filter(Boolean),
+    packageName: values["package-name"],
+  });
+  if (existsSync(path.join(root, app.dir))) throw new Error(`${app.dir} already exists`);
 
-  const name = kebab(rawName);
-  if (file.apps.some((app) => app.name === name) || existsSync(path.join(root, "apps", name))) {
-    throw new Error(`apps/${name} already exists`);
-  }
-
-  p.intro(`stacks add ${stack.id} ${name}`);
+  p.intro(`stacks add ${stack.id} ${app.name}`);
   await ensurePnpm();
   const { snapshot, source } = await loadVersions(
     { mode: parseVersionsMode(values.versions), file: values["versions-file"] },
@@ -89,28 +94,17 @@ export async function addCommand(argv: string[]) {
   );
   p.log.info(`Versions for new catalog entries: ${source}`);
 
-  const app: AppInfo = {
-    name,
-    title: values.title ?? titleCase(name),
-    stack: stack.id,
-    deploy: values.deploy ?? stack.defaultDeploy,
-    addons:
-      values.with
-        ?.split(",")
-        .map((addon) => addon.trim())
-        .filter(Boolean) ?? [],
-    ...nextPorts(file),
-  };
-  const base = {
-    repo: file.repo,
-    ui: file.ui,
+  const overlay = new Overlay(root);
+  const {
+    post,
+    warnings,
+    file: next,
+  } = await composeApp(overlay, file, app, {
     versions: snapshot,
     today: new Date().toISOString().slice(0, 10),
-  };
-
-  const overlay = new Overlay(root);
-  const { post, warnings } = await composeApp(overlay, base, app, []);
-  overlay.writeJson(STACKS_FILE, stacksFileFor(base, [...file.apps, app]));
+    isNew: false,
+  });
+  overlay.writeJson(STACKS_FILE, next);
   await overlay.flush();
   p.log.success(`Wrote or updated ${overlay.changed.length} files`);
   for (const warning of warnings) p.log.warn(warning);
@@ -124,6 +118,11 @@ export async function addCommand(argv: string[]) {
     ],
     { install: values.install !== false },
   );
-  p.note(`pnpm --filter ${app.name} dev     # http://localhost:${app.devPort}`, "Next");
-  p.outro(`Added apps/${app.name}. Review the changes with git diff and commit them.`);
+  p.note(
+    app.devPort === undefined
+      ? `pnpm --filter ${app.packageName} dev -- --help`
+      : `pnpm --filter ${app.packageName} dev     # http://localhost:${app.devPort}`,
+    "Next",
+  );
+  p.outro(`Added ${app.dir}. Review the changes with git diff and commit them.`);
 }

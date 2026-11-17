@@ -4,7 +4,8 @@ import path from "node:path";
 import { actionsIn } from "./compose/tokens.ts";
 import type { AppInfo, Ctx, Layer } from "./model.ts";
 import { TEMPLATES_DIR } from "./paths.ts";
-import { appLayers, REPO_LAYERS, STACKS } from "./stacks.ts";
+import { makeApp } from "./scaffold.ts";
+import { appLayers, REPO_LAYERS, STACKS, UI_LAYER } from "./stacks.ts";
 import type { Snapshot } from "./versions/types.ts";
 
 /** A context every layer can be evaluated in, to list what it asks for. */
@@ -23,10 +24,10 @@ function sampleCtx(app?: AppInfo): Ctx {
       name: "sample",
       title: "Sample",
       scope: "@sample",
-      uiPackage: "@sample/ui",
       accent: "teal",
+      github: "me/sample",
     },
-    ui: { storybookPort: 6008 },
+    ui: { package: "@sample/ui", storybookPort: 6008 },
     versions,
     today: "2026-01-01",
     app,
@@ -49,18 +50,14 @@ export function allPackages(): string[] {
       }
     }
   };
-  collect(REPO_LAYERS, sampleCtx());
+  collect([...REPO_LAYERS, UI_LAYER], sampleCtx());
   for (const stack of Object.values(STACKS)) {
     for (const deploy of Object.keys(stack.deploys)) {
-      const app: AppInfo = {
+      const app = makeApp(stack, [], {
         name: "sample-app",
-        title: "Sample app",
-        stack: stack.id,
         deploy,
         addons: Object.keys(stack.addons),
-        devPort: 3000,
-        storybookPort: 6009,
-      };
+      });
       collect(appLayers(app), sampleCtx(app));
     }
   }

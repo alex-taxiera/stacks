@@ -27,7 +27,7 @@ export function targetDir(target: Target, ctx: Ctx): string {
   if (target === "root") return "";
   if (target === "ui") return "packages/ui";
   if (!ctx.app) throw new Error("an app template was applied without an app");
-  return `apps/${ctx.app.name}`;
+  return ctx.app.dir;
 }
 
 async function* walk(dir: string): AsyncGenerator<string> {
@@ -67,8 +67,19 @@ interface PackageJson {
 
 function basePackage(target: Target, ctx: Ctx): PackageJson {
   if (target === "root") return { name: ctx.repo.name, private: true, type: "module" };
-  const name = target === "ui" ? ctx.repo.uiPackage : (ctx.app?.name ?? "app");
-  return { name, version: "0.0.0", private: true, type: "module" };
+  if (target === "ui") {
+    if (!ctx.ui) throw new Error("a UI package file was written before the UI package exists");
+    return { name: ctx.ui.package, version: "0.0.0", private: true, type: "module" };
+  }
+  if (!ctx.app) throw new Error("an app package was written without an app");
+  // A package that's published can't be private; it says so in its own fields.
+  const isPackage = ctx.app.kind === "package";
+  return {
+    name: ctx.app.packageName,
+    version: "0.0.0",
+    ...(isPackage ? {} : { private: true }),
+    type: "module",
+  };
 }
 
 /** Writes each package's `package.json`; returns every dependency name that needs a catalog entry. */
@@ -93,6 +104,8 @@ function writePackages(
     let fields: Record<string, unknown> = {};
     for (const part of parts) {
       for (const name of part.workspaceDependencies ?? []) deps.dependencies[name] = "workspace:*";
+      for (const name of part.workspaceDevDependencies ?? [])
+        deps.devDependencies[name] = "workspace:*";
       for (const kind of ["dependencies", "devDependencies", "peerDependencies"] as const) {
         for (const name of part[kind] ?? []) {
           deps[kind][name] ??= "catalog:";

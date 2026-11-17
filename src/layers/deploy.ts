@@ -40,3 +40,25 @@ export const deployGhPages: Layer = (ctx) => {
     ],
   };
 };
+
+/** npm, published with provenance from a dispatched release workflow. */
+export const releaseNpm: Layer = (ctx) => {
+  const name = ctx.app?.name ?? "cli";
+  const pkg = ctx.app?.packageName ?? name;
+  return {
+    id: "release-npm",
+    agents: [
+      {
+        region: "rules",
+        id: `release:${name}`,
+        body: [
+          `- **\`${pkg}\` releases from \`.github/workflows/release-${name}.yml\`**: Actions → Run, pick a bump.`,
+          `  It tags \`${name}@v<version>\`, sets the version in \`package.json\` and the skill's`,
+          "  `library_version`, publishes to npm with provenance and makes a GitHub release. Never",
+          "  edit `version` by hand. Publishing uses npm trusted publishing: add this repo and workflow",
+          `  as a trusted publisher of \`${pkg}\` on npmjs.com once, before the first release.`,
+        ].join("\n"),
+      },
+    ],
+  };
+};

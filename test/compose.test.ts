@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -7,140 +7,229 @@ import { parse } from "yaml";
 
 import { allActions, allPackages } from "../src/catalog.ts";
 import { Overlay } from "../src/compose/overlay.ts";
-import type { AppInfo, Ctx } from "../src/model.ts";
-import { composeApp, nextPorts, stacksFileFor } from "../src/scaffold.ts";
-import { REPO_LAYERS } from "../src/stacks.ts";
+import type { AppInfo, StacksFile } from "../src/model.ts";
+import { composeApp, makeApp, readStacksFile } from "../src/scaffold.ts";
+import { STACKS } from "../src/stacks.ts";
 import { readBundledSnapshot } from "../src/versions/snapshot.ts";
+import type { Snapshot } from "../src/versions/types.ts";
 
 let root: string;
+let versions: Snapshot;
 beforeEach(async () => {
   root = await mkdtemp(path.join(tmpdir(), "stacks-test-"));
+  versions = await readBundledSnapshot();
 });
 afterEach(async () => {
   await rm(root, { recursive: true, force: true });
 });
 
-async function baseCtx(): Promise<Omit<Ctx, "app">> {
-  return {
-    repo: { name: "demo", title: "Demo", scope: "@demo", uiPackage: "@demo/ui", accent: "teal" },
-    ui: { storybookPort: 6008 },
-    versions: await readBundledSnapshot(),
+const emptyRepo = (): StacksFile => ({
+  version: 1,
+  cli: "",
+  repo: { name: "demo", title: "Demo", scope: "@demo", accent: "teal", github: "me/demo" },
+  apps: [],
+});
+
+/** Composes `app` into the repo at `root` and writes it, as `new` (first) or `add` would. */
+async function compose(file: StacksFile, app: AppInfo) {
+  const overlay = new Overlay(root);
+  const result = await composeApp(overlay, file, app, {
+    versions,
     today: "2026-11-16",
-  };
+    isNew: file.apps.length === 0,
+  });
+  overlay.writeJson(".stacks.json", result.file);
+  await overlay.flush();
+  return { overlay, ...result };
 }
 
-const web: AppInfo = {
-  name: "web",
-  title: "Demo",
-  stack: "spa",
-  deploy: "cloudflare",
-  addons: [],
-  devPort: 3000,
-  storybookPort: 6009,
-};
+const read = (file: string) => readFile(path.join(root, file), "utf8");
+const readJson = async <T>(file: string) => JSON.parse(await read(file)) as T;
+
+const web = () => makeApp(STACKS.spa, [], { name: "web", deploy: "cloudflare" });
+const tool = () =>
+  makeApp(STACKS.cli, [], { name: "cli", packageName: "@me/greeter", deploy: "npm" });
 
 describe("the bundled snapshot", () => {
   it("has a version for every package and action the layers and templates use", async () => {
-    const snapshot = await readBundledSnapshot();
-    expect(allPackages().filter((name) => !snapshot.npm[name])).toEqual([]);
-    expect((await allActions()).filter((repo) => !snapshot.actions[repo])).toEqual([]);
+    expect(allPackages().filter((name) => !versions.npm[name])).toEqual([]);
+    expect((await allActions()).filter((repo) => !versions.actions[repo])).toEqual([]);
   });
 });
 
-describe("new", () => {
+describe("new --stack spa", () => {
   it("writes the repo, the UI package and the first app", async () => {
-    const overlay = new Overlay(root);
-    await composeApp(overlay, await baseCtx(), web, REPO_LAYERS);
-    const files = overlay.changed;
-    for (const file of [
+    const { overlay, file } = await compose(emptyRepo(), web());
+    for (const expected of [
       "package.json",
       "pnpm-workspace.yaml",
       "AGENTS.md",
       ".agents/mcp.json",
-      ".gitignore",
-      ".storybook/main.ts".replace(/^/, "apps/web/"),
+      ".vscode/tasks.json",
       "packages/ui/package.json",
       "packages/ui/src/theme.ts",
       "apps/web/package.json",
+      "apps/web/.storybook/main.ts",
       "apps/web/src/routes/__root.tsx",
       "apps/web/wrangler.jsonc",
       ".github/workflows/deploy-web.yml",
     ]) {
-      expect(files).toContain(file);
+      expect(overlay.changed).toContain(expected);
     }
-    expect(files.some((file) => file.includes("dot_") || file.includes("__APP"))).toBe(false);
+    expect(overlay.changed.some((changed) => /dot_|__[A-Z]/.test(changed))).toBe(false);
+    expect(file.ui).toEqual({ package: "@demo/ui", storybookPort: 6008 });
+    expect(file.apps[0]).toMatchObject({ dir: "apps/web", devPort: 3000, storybookPort: 6009 });
   });
 
   it("asks for every dependency through the catalog, and pins pnpm", async () => {
-    const overlay = new Overlay(root);
-    const ctx = await baseCtx();
-    await composeApp(overlay, ctx, web, REPO_LAYERS);
-    const app = overlay.readJson<{ dependencies: Record<string, string> }>("apps/web/package.json");
-    expect(app?.dependencies["@demo/ui"]).toBe("workspace:*");
-    expect(app?.dependencies.react).toBe("catalog:");
-    const rootPackage = overlay.readJson<{ packageManager: string }>("package.json");
-    expect(rootPackage?.packageManager).toBe(`pnpm@${ctx.versions.pnpm}`);
-    const workspace = parse(overlay.read("pnpm-workspace.yaml") ?? "") as {
+    await compose(emptyRepo(), web());
+    const app = await readJson<{ dependencies: Record<string, string> }>("apps/web/package.json");
+    expect(app.dependencies["@demo/ui"]).toBe("workspace:*");
+    expect(app.dependencies.react).toBe("catalog:");
+    const rootPackage = await readJson<{ packageManager: string; intent: { skills: string[] } }>(
+      "package.json",
+    );
+    expect(rootPackage.packageManager).toBe(`pnpm@${versions.pnpm}`);
+    expect(rootPackage.intent.skills).toEqual(["@tanstack/*"]);
+    const workspace = parse(await read("pnpm-workspace.yaml")) as {
       packages: string[];
       catalog: Record<string, string>;
     };
     expect(workspace.packages).toEqual(["apps/*", "packages/*"]);
-    expect(workspace.catalog.react).toBe(`^${ctx.versions.npm.react}`);
+    expect(workspace.catalog.react).toBe(`^${versions.npm.react}`);
   });
 
   it("fills in tokens, including action versions", async () => {
-    const overlay = new Overlay(root);
-    const ctx = await baseCtx();
-    await composeApp(overlay, ctx, web, REPO_LAYERS);
-    expect(overlay.read(".github/workflows/ci.yml")).toContain(
-      `actions/checkout@${ctx.versions.actions["actions/checkout"]}`,
+    await compose(emptyRepo(), web());
+    expect(await read(".github/workflows/ci.yml")).toContain(
+      `actions/checkout@${versions.actions["actions/checkout"]}`,
     );
-    expect(overlay.read("apps/web/vite.config.ts")).toContain("port: 3000");
-    expect(overlay.read("apps/web/.storybook/preview.tsx")).toContain('from "@demo/ui/storybook"');
+    expect(await read("apps/web/vite.config.ts")).toContain("port: 3000");
+    expect(await read("apps/web/.storybook/preview.tsx")).toContain('from "@demo/ui/storybook"');
+  });
+
+  it("wires the UI package into the root: lint rule, MCP servers, AGENTS.md", async () => {
+    await compose(emptyRepo(), web());
+    const oxlint = await read(".oxlintrc.json");
+    expect(oxlint).toContain("Use the snippet from @demo/ui");
+    const mcp = await readJson<{ mcpServers: Record<string, { command?: string }> }>(
+      ".agents/mcp.json",
+    );
+    expect(Object.keys(mcp.mcpServers)).toEqual(["chakra-ui", "storybook-ui", "storybook-web"]);
+    expect(mcp.mcpServers["chakra-ui"]?.command).toBe("pnpm");
+    const agents = await read("AGENTS.md");
+    expect(agents).toContain("stacks:block:ui");
+    expect(agents).toContain("### Accessibility");
+  });
+});
+
+describe("new --stack cli", () => {
+  it("puts the package in packages/ and makes no UI package", async () => {
+    const { overlay, file } = await compose(emptyRepo(), tool());
+    expect(file.ui).toBeUndefined();
+    expect(file.apps[0]).toMatchObject({ kind: "package", dir: "packages/cli" });
+    expect(file.apps[0]?.devPort).toBeUndefined();
+    expect(overlay.changed.some((changed) => changed.startsWith("packages/ui/"))).toBe(false);
+    expect(overlay.changed).toContain("packages/cli/skills/greeter/SKILL.md");
+    expect(overlay.changed).toContain(".github/workflows/release-cli.yml");
+    expect(await read(".oxlintrc.json")).not.toContain("no-restricted-imports");
+    const mcp = await readJson<{ mcpServers: Record<string, unknown> }>(".agents/mcp.json");
+    expect(mcp.mcpServers).toEqual({});
+    expect(await read("AGENTS.md")).not.toContain("Chakra");
+  });
+
+  it("publishes the package with its skill, and the root consumes that skill", async () => {
+    await compose(emptyRepo(), tool());
+    const pkg = await readJson<{
+      name: string;
+      private?: boolean;
+      bin: Record<string, string>;
+      files: string[];
+      keywords: string[];
+      repository: { url: string; directory: string };
+    }>("packages/cli/package.json");
+    expect(pkg.name).toBe("@me/greeter");
+    expect(pkg.private).toBeUndefined();
+    expect(pkg.bin).toEqual({ greeter: "./dist/cli.js" });
+    expect(pkg.files).toEqual(["dist", "skills"]);
+    expect(pkg.keywords).toContain("tanstack-intent");
+    expect(pkg.repository).toMatchObject({ directory: "packages/cli" });
+
+    const rootPackage = await readJson<{
+      devDependencies: Record<string, string>;
+      intent: { skills: string[] };
+    }>("package.json");
+    expect(rootPackage.devDependencies["@me/greeter"]).toBe("workspace:*");
+    expect(rootPackage.intent.skills).toEqual(["workspace:@me/greeter"]);
+
+    const skill = await read("packages/cli/skills/greeter/SKILL.md");
+    expect(skill).toContain(`library: "@me/greeter"`);
+    expect(skill).toContain('- "packages/cli/src/cli.ts"');
   });
 });
 
 describe("add", () => {
-  it("merges a second app into the repo's shared files", async () => {
-    const ctx = await baseCtx();
-    const first = new Overlay(root);
-    await composeApp(first, ctx, web, REPO_LAYERS);
-    first.writeJson(".stacks.json", stacksFileFor(ctx, [web]));
-    await first.flush();
+  it("creates the UI package with the first app that needs it, once", async () => {
+    const first = await compose(
+      emptyRepo(),
+      makeApp(STACKS.cli, [], { name: "cli", deploy: "npm" }),
+    );
+    const site = makeApp(STACKS.spa, first.file.apps, { name: "web", deploy: "gh-pages" });
+    expect([site.devPort, site.storybookPort]).toEqual([3000, 6009]);
+    const second = await compose(first.file, site);
+    expect(second.file.ui?.package).toBe("@demo/ui");
+    expect(second.overlay.changed).toContain("packages/ui/src/theme.ts");
 
-    const docs: AppInfo = {
-      ...web,
-      name: "docs",
-      title: "Docs",
-      deploy: "gh-pages",
-      ...nextPorts({ apps: [web], ui: ctx.ui }),
-    };
+    const docs = makeApp(STACKS.spa, second.file.apps, { name: "docs", deploy: "cloudflare" });
     expect([docs.devPort, docs.storybookPort]).toEqual([3010, 6010]);
-    const second = new Overlay(root);
-    await composeApp(second, ctx, docs, []);
-    await second.flush();
+    const third = await compose(second.file, docs);
+    expect(third.overlay.changed.some((changed) => changed.startsWith("packages/ui/"))).toBe(false);
 
-    const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
-    expect(agents).toContain("stacks:block:app:web");
-    expect(agents).toContain("stacks:block:app:docs");
-    const mcp = JSON.parse(await readFile(path.join(root, ".agents/mcp.json"), "utf8")) as {
-      mcpServers: Record<string, unknown>;
-    };
+    const agents = await read("AGENTS.md");
+    for (const block of ["app:cli", "ui", "app:web", "app:docs", "skill:cli"]) {
+      expect(agents).toContain(`<!-- stacks:block:${block} -->`);
+    }
+    const mcp = await readJson<{ mcpServers: Record<string, unknown> }>(".agents/mcp.json");
     expect(Object.keys(mcp.mcpServers)).toEqual([
       "chakra-ui",
       "storybook-ui",
       "storybook-web",
       "storybook-docs",
     ]);
-    expect(second.changed).toContain(".github/workflows/pages-docs.yml");
-    expect(second.changed).not.toContain("packages/ui/package.json");
   });
 
-  it("refuses to overwrite an app's files", async () => {
-    const ctx = await baseCtx();
-    const first = new Overlay(root);
-    await composeApp(first, ctx, web, REPO_LAYERS);
-    await first.flush();
-    await expect(composeApp(new Overlay(root), ctx, web, [])).rejects.toThrow(/already exists/);
+  it("refuses a name that's taken", async () => {
+    const { file } = await compose(emptyRepo(), makeApp(STACKS.spa, [], { name: "web" }));
+    expect(() => makeApp(STACKS.spa, file.apps, { name: "web" })).toThrow(/already exists/);
+    expect(() => makeApp(STACKS.cli, file.apps, { name: "ui" })).toThrow(/already exists/);
+  });
+});
+
+describe("readStacksFile", () => {
+  it("reads the 0.1.0 shape, where every repo had a UI package", async () => {
+    await writeFile(
+      path.join(root, ".stacks.json"),
+      JSON.stringify({
+        version: 1,
+        cli: "0.1.0",
+        repo: { name: "old", title: "Old", scope: "@old", uiPackage: "@old/ui", accent: "teal" },
+        ui: { storybookPort: 6008 },
+        apps: [
+          {
+            name: "web",
+            title: "Old",
+            stack: "spa",
+            deploy: "cloudflare",
+            addons: [],
+            devPort: 3000,
+            storybookPort: 6009,
+          },
+        ],
+      }),
+    );
+    const file = readStacksFile(root);
+    expect(file.ui).toEqual({ package: "@old/ui", storybookPort: 6008 });
+    expect(file.repo).not.toHaveProperty("uiPackage");
+    expect(file.apps[0]).toMatchObject({ kind: "app", dir: "apps/web", packageName: "web" });
   });
 });

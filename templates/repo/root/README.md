@@ -7,17 +7,22 @@ A pnpm workspace made with [stacks](https://github.com/alex-taxiera/stacks).
 ```sh
 corepack enable   # once, for pnpm
 pnpm install
-pnpm storybook    # every package's Storybook
+pnpm test
 ```
 
-Each app's README section in [AGENTS.md](AGENTS.md) lists how to run it.
+[AGENTS.md](AGENTS.md) lists each app and package, and how to run it.
 
 ## Layout
 
-- `packages/ui` (`__UI_PKG__`): the shared Chakra UI components, theme and Storybook preview.
-- `apps/*`: the apps. Add another with `pnpm dlx @alex-taxiera/stacks add <stack> <name>`.
+- `apps/*`: apps that deploy.
+- `packages/*`: packages that publish, and `packages/ui`, the shared Chakra UI components, once
+  an app needs them.
+
+Add another with `pnpm dlx @alex-taxiera/stacks add <stack> <name>` (`stacks list` shows the
+stacks).
 
 ## Tooling
 
-oxlint and oxfmt (`pnpm lint`, `pnpm format`), TypeScript, Vitest with every Storybook story run as
-a browser test (`pnpm test`), husky and lint-staged. Dependabot opens weekly update PRs.
+oxlint and oxfmt (`pnpm lint`, `pnpm format`), TypeScript, Vitest (`pnpm test`), husky and
+lint-staged, and TanStack Intent for the agent skills packages ship (`pnpm skills`). Dependabot
+opens weekly update PRs.

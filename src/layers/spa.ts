@@ -1,4 +1,5 @@
-import type { AppInfo, Layer } from "../model.ts";
+import type { Layer } from "../model.ts";
+import { requireApp, requirePorts, requireUi } from "./require.ts";
 import {
   CHAKRA,
   REACT,
@@ -9,15 +10,11 @@ import {
   VITE_REACT,
 } from "./shared.ts";
 
-function requireApp(app: AppInfo | undefined): AppInfo {
-  if (!app) throw new Error("an app layer was applied without an app");
-  return app;
-}
-
 /** A client-only app: Vite, TanStack Router, and every page prerendered to static HTML. */
 export const spa: Layer = (ctx) => {
   const app = requireApp(ctx.app);
-  const ui = ctx.repo.uiPackage;
+  const { devPort, storybookPort } = requirePorts(app);
+  const ui = requireUi(ctx).package;
   return {
     id: "spa",
     packages: {
@@ -41,12 +38,14 @@ export const spa: Layer = (ctx) => {
           "generate-routes": "tsr generate",
           typecheck: `pnpm --filter ${ui} typegen && tsr generate && tsc --noEmit`,
           test: "vitest run",
-          ...storybookScripts(app.storybookPort),
+          ...storybookScripts(storybookPort),
         },
       },
+      // TanStack Router ships skills for routing, data loading and the like; Intent serves them.
+      root: { fields: { intent: { skills: ["@tanstack/*"] } } },
     },
     mcp: {
-      [`storybook-${app.name}`]: { type: "http", url: `http://localhost:${app.storybookPort}/mcp` },
+      [`storybook-${app.name}`]: { type: "http", url: `http://localhost:${storybookPort}/mcp` },
     },
     agents: [
       {
@@ -56,7 +55,7 @@ export const spa: Layer = (ctx) => {
           `- \`apps/${app.name}\` (package \`${app.name}\`) — ${app.title}: a client-only app. Vite,`,
           "  TanStack Router (file routes in `src/routes`) and `vite-prerender-plugin`, which renders",
           "  every page to static HTML after the build (`src/prerender.tsx`).",
-          `  - \`pnpm --filter ${app.name} dev\` (port ${app.devPort}), \`build\`, \`preview\`; Storybook on ${app.storybookPort}.`,
+          `  - \`pnpm --filter ${app.name} dev\` (port ${devPort}), \`build\`, \`preview\`; Storybook on ${storybookPort}.`,
           "  - Code that runs at import time must be safe in Node: the prerender imports every route.",
           "    A page nothing links to goes in `additionalPrerenderRoutes` in `vite.config.ts`.",
           "  - Page titles and `<meta>` come from each route's `head()`. Links use `RouterLink`",
@@ -67,7 +66,7 @@ export const spa: Layer = (ctx) => {
       {
         region: "mcp",
         id: `storybook-${app.name}`,
-        body: `- \`storybook-${app.name}\` — \`apps/${app.name}\`'s Storybook, port ${app.storybookPort}.`,
+        body: `- \`storybook-${app.name}\` — \`apps/${app.name}\`'s Storybook, port ${storybookPort}.`,
       },
     ],
     post: [

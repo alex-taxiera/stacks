@@ -1,6 +1,6 @@
 import type { Snapshot } from "./versions/types.ts";
 
-export type StackId = "spa";
+export type StackId = "spa" | "cli";
 
 export interface RepoInfo {
   /** The directory and root package name, kebab-case. */
@@ -9,21 +9,35 @@ export interface RepoInfo {
   title: string;
   /** The npm scope every workspace package shares, such as `@my-repo`. */
   scope: string;
-  /** The shared UI package's name, such as `@my-repo/ui`. */
-  uiPackage: string;
-  /** The Chakra palette `accent` points at. */
+  /** The Chakra palette `accent` points at, once there's a UI package. */
   accent: string;
+  /** `owner/name` on GitHub, for `repository` fields. */
+  github: string;
 }
 
+/** The shared Chakra package, which the first app with a UI creates. */
+export interface UiInfo {
+  /** Its package name, such as `@my-repo/ui`. */
+  package: string;
+  storybookPort: number;
+}
+
+/** An app (`apps/<name>`, deployed) or a package (`packages/<name>`, published). */
 export interface AppInfo {
-  /** The folder under `apps/` and the package name, kebab-case. */
+  /** The folder name, kebab-case. */
   name: string;
   title: string;
   stack: StackId;
+  kind: "app" | "package";
+  /** `apps/<name>` or `packages/<name>`. */
+  dir: string;
+  /** Its package name: the folder name, or a scoped name a published package asks for. */
+  packageName: string;
   deploy: string;
   addons: string[];
-  devPort: number;
-  storybookPort: number;
+  /** Only for apps with a dev server and a Storybook. */
+  devPort?: number;
+  storybookPort?: number;
 }
 
 /** `.stacks.json`, at the root of every generated repo: what `add` and `update` build on. */
@@ -32,15 +46,16 @@ export interface StacksFile {
   /** The stacks version that last changed the repo. */
   cli: string;
   repo: RepoInfo;
-  ui: { storybookPort: number };
+  ui?: UiInfo;
   apps: AppInfo[];
 }
 
 export interface Ctx {
   repo: RepoInfo;
-  ui: { storybookPort: number };
+  /** Set once the repo has a UI package. */
+  ui?: UiInfo;
   versions: Snapshot;
-  /** Set for app layers; unset for the repo layers `new` applies once. */
+  /** Set for app layers; unset for the repo layer `new` applies once. */
   app?: AppInfo;
   /** The day the repo or app is made, for `compatibility_date` and the like. */
   today: string;
@@ -56,6 +71,7 @@ export interface PackageContribution {
   peerDependencies?: string[];
   /** Workspace packages, depended on as `workspace:*`. */
   workspaceDependencies?: string[];
+  workspaceDevDependencies?: string[];
   scripts?: Record<string, string>;
   /** Other top-level fields, merged deeply (`exports`, `imports`, `lint-staged`…). */
   fields?: Record<string, unknown>;
@@ -70,7 +86,7 @@ export interface McpServer {
 
 /** A block of AGENTS.md inside one of its `<!-- stacks:<region>:start -->` regions. */
 export interface AgentsBlock {
-  region: "apps" | "rules" | "mcp";
+  region: "apps" | "rules" | "ui" | "mcp";
   id: string;
   body: string;
 }

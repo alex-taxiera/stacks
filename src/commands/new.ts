@@ -6,28 +6,33 @@ import * as p from "@clack/prompts";
 
 import { Overlay } from "../compose/overlay.ts";
 import { capture, run } from "../exec.ts";
-import type { AppInfo, Ctx, StackId } from "../model.ts";
+import type { StackId, StacksFile } from "../model.ts";
 import {
   composeApp,
   ensurePnpm,
+  githubOwner,
   kebab,
   loadVersions,
-  nextPorts,
+  makeApp,
   parseVersionsMode,
   progress,
   runPost,
   STACKS_FILE,
-  stacksFileFor,
   titleCase,
 } from "../scaffold.ts";
-import { isStackId, REPO_LAYERS, STACKS } from "../stacks.ts";
+import { isStackId, STACKS } from "../stacks.ts";
 
 const HELP = `stacks new [dir] [options] — a new repo with its first app
 
 Options:
   --stack <id>          ${Object.keys(STACKS).join(" | ")}
-  --app <name>          The first app's name, under apps/ (default: the stack's, such as "web")
+  --app <name>          The first app's folder name, under apps/ or packages/ (default: the
+                        stack's, such as "web" or "cli")
+  --package-name <n>    Its package name, such as @me/tool for a published package
+                        (default: the folder name)
   --title <text>        The repo's title (default: from its folder name)
+  --github <owner/repo> Where it lives on GitHub, for \`repository\` fields (default: your gh
+                        login and the folder name)
   --deploy <target>     Where the app deploys (see \`stacks list\`)
   --with <a,b>          Add-ons (see \`stacks list\`)
   --accent <palette>    The Chakra palette for the accent colour (default: teal)
@@ -53,7 +58,9 @@ export async function newCommand(argv: string[]) {
     options: {
       stack: { type: "string" },
       app: { type: "string" },
+      "package-name": { type: "string" },
       title: { type: "string" },
+      github: { type: "string" },
       deploy: { type: "string" },
       with: { type: "string" },
       accent: { type: "string" },
@@ -109,7 +116,7 @@ export async function newCommand(argv: string[]) {
   let appName = values.app;
   if (!appName && interactive) {
     const answer = await p.text({
-      message: "The app's name (its folder under apps/)",
+      message: `Its folder name, under ${stack.kind === "package" ? "packages" : "apps"}/`,
       initialValue: stack.defaultAppName,
     });
     bail(answer);
@@ -157,33 +164,42 @@ export async function newCommand(argv: string[]) {
   );
   p.log.info(`Versions: ${source}`);
 
-  const scope = `@${repoName}`;
-  const base: Omit<Ctx, "app"> = {
+  const title = values.title ?? titleCase(repoName);
+  const empty: StacksFile = {
+    version: 1,
+    cli: "",
     repo: {
       name: repoName,
-      title: values.title ?? titleCase(repoName),
-      scope,
-      uiPackage: `${scope}/ui`,
+      title,
+      scope: `@${repoName}`,
       accent: values.accent ?? "teal",
+      github: values.github ?? `${githubOwner() ?? "OWNER"}/${repoName}`,
     },
-    ui: { storybookPort: 6008 },
-    versions: snapshot,
-    today: new Date().toISOString().slice(0, 10),
+    apps: [],
   };
-  const app: AppInfo = {
+  const app = makeApp(stack, [], {
     name: appName,
-    title: titleCase(appName) === "Web" ? base.repo.title : titleCase(appName),
-    stack: stack.id,
+    // The first app is often the repo's reason for being, so it takes the repo's title.
+    title: ["web", "cli"].includes(appName) ? title : undefined,
     deploy,
     addons: addons ?? [],
-    ...nextPorts({ apps: [], ui: base.ui }),
-  };
+    packageName: values["package-name"],
+  });
 
   const overlay = new Overlay(root);
-  const { post, warnings } = await composeApp(overlay, base, app, REPO_LAYERS);
-  overlay.writeJson(STACKS_FILE, stacksFileFor(base, [app]));
+  const { post, warnings, file } = await composeApp(overlay, empty, app, {
+    versions: snapshot,
+    today: new Date().toISOString().slice(0, 10),
+    isNew: true,
+  });
+  overlay.writeJson(STACKS_FILE, file);
   await overlay.flush();
   p.log.success(`Wrote ${overlay.changed.length} files to ${root}`);
+  if (file.repo.github.startsWith("OWNER/")) {
+    p.log.warn(
+      "Couldn't tell your GitHub login; set it with --github, or fix the repository fields.",
+    );
+  }
   for (const warning of warnings) p.log.warn(warning);
 
   const install = values.install !== false;
@@ -218,8 +234,11 @@ export async function newCommand(argv: string[]) {
   const steps = [
     `cd ${relative}`,
     ...(install ? [] : ["pnpm install"]),
-    `pnpm --filter ${app.name} dev     # http://localhost:${app.devPort}`,
-    "pnpm storybook",
+    app.devPort === undefined
+      ? `pnpm --filter ${app.packageName} dev -- --help`
+      : `pnpm --filter ${app.packageName} dev     # http://localhost:${app.devPort}`,
+    ...(file.ui ? ["pnpm storybook"] : []),
+    "pnpm skills        # the agent skills Intent can load",
   ];
   p.note(steps.join("\n"), "Next");
   p.outro(

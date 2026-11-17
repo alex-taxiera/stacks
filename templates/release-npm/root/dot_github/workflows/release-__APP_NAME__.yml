@@ -1,0 +1,136 @@
+# Releases __PACKAGE_NAME__ (__APP_DIR__): pick how big a jump this is and press Run. You never
+# type a version and never touch git. It tags __APP_NAME__@v<version>, publishes to npm with
+# provenance, and makes a GitHub release.
+#
+# Publishing uses npm trusted publishing, so there's no token to keep: once, before the first
+# release, add this repository and this workflow file as a trusted publisher of __PACKAGE_NAME__
+# on npmjs.com (the package's Settings → Trusted publishing). A package that has never been
+# published needs one first publish by hand: `pnpm --filter __PACKAGE_NAME__ publish`.
+name: Release __APP_NAME__
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "How much to raise the version"
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+  # GitHub doesn't list a workflow under Actions until something has run it, and a dispatch-only
+  # workflow never runs on its own. This registers it from the commit that adds it; the job below
+  # only runs when someone presses Run.
+  push:
+    paths:
+      - .github/workflows/release-__APP_NAME__.yml
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release-__APP_NAME__
+  cancel-in-progress: false
+
+env:
+  HUSKY: 0
+  TAG_PREFIX: __APP_NAME__@v
+  PACKAGE_DIR: __APP_DIR__
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@__ACTION[actions/checkout]__
+        with:
+          # Tags are how the next version is worked out, and a shallow clone fetches none.
+          fetch-depth: 0
+      - uses: pnpm/action-setup@__ACTION[pnpm/action-setup]__
+      - uses: actions/setup-node@__ACTION[actions/setup-node]__
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+
+      - name: Work out the next version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          set -euo pipefail
+          PREVIOUS="$(git tag --list "${TAG_PREFIX}*" --sort=-v:refname | head -n 1)"
+          BASE="${PREVIOUS#"$TAG_PREFIX"}"
+          BASE="${BASE:-0.0.0}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE"
+          case "$BUMP" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+            *) echo "Unknown bump '$BUMP'" >&2; exit 1 ;;
+          esac
+          VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          TAG="${TAG_PREFIX}${VERSION}"
+          if git rev-parse "$TAG" > /dev/null 2>&1; then
+            echo "Tag $TAG already exists" >&2
+            exit 1
+          fi
+          echo "Previous release: ${PREVIOUS:-none}. This release: $TAG"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      # Before anything is committed or tagged, so a broken build never leaves a stray tag.
+      - name: Check
+        run: |
+          pnpm --filter __PACKAGE_NAME__ typecheck
+          pnpm --filter __PACKAGE_NAME__ test
+          pnpm --filter __PACKAGE_NAME__ skills:check
+
+      # The skill says which version it describes; Intent compares it with the package's.
+      - name: Record the version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          cd "$PACKAGE_DIR"
+          jq --arg v "$VERSION" '.version = $v' package.json > package.json.tmp
+          mv package.json.tmp package.json
+          for skill in skills/*/SKILL.md; do
+            sed -i -E "s/^(  library_version: ).*/\1\"$VERSION\"/" "$skill"
+          done
+
+      - name: Commit and tag
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$PACKAGE_DIR"
+          git commit -m "chore(__APP_NAME__): release $TAG"
+          git tag -a "$TAG" -m "Release $TAG"
+          if ! git push origin HEAD; then
+            echo "::error::Couldn't push to the default branch. If it's protected, let github-actions[bot] bypass the rules." >&2
+            exit 1
+          fi
+          git push origin "$TAG"
+
+      # pnpm packs (turning catalog: and workspace: into real versions); npm publishes, since it
+      # speaks npm's trusted publishing and records provenance.
+      - name: Publish to npm
+        run: |
+          set -euo pipefail
+          cd "$PACKAGE_DIR"
+          pnpm pack --pack-destination "$RUNNER_TEMP"
+          npm publish "$RUNNER_TEMP"/*.tgz --provenance --access public
+
+      - name: Make the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: gh release create "$TAG" --title "__PACKAGE_NAME__ $TAG" --generate-notes --verify-tag

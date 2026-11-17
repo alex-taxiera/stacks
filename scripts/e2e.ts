@@ -8,7 +8,7 @@
 //   node scripts/e2e.ts --case spa-multi --keep      keep the scaffold to look at
 
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { parseArgs } from "node:util";
@@ -16,9 +16,30 @@ import { parseArgs } from "node:util";
 interface Case {
   /** `stacks` argument lists, run in order: the first is `new`, the rest `add`s. */
   commands: string[][];
+  /** Commands run in the repo after the usual checks, such as a CLI's own and Intent's. */
+  after?: string[][];
 }
 
+/** A CLI's checks: its skill is valid, Intent finds and loads it, and the built bin runs. */
+const cliChecks = (pkg: string, dir: string): string[][] => [
+  ["pnpm", "--filter", pkg, "skills:check"],
+  ["pnpm", "exec", "intent", "load", `${pkg}#${pkg.split("/").at(-1)}`],
+  ["node", `${dir}/dist/cli.js`, "--version"],
+  ["pnpm", "--filter", pkg, "dev", "hello", "e2e"],
+];
+
 const CASES: Record<string, Case> = {
+  cli: {
+    commands: [["new", "--stack", "cli", "--package-name", "@e2e/greeter", "--github", "e2e/repo"]],
+    after: cliChecks("@e2e/greeter", "packages/cli"),
+  },
+  "cli-then-spa": {
+    commands: [
+      ["new", "--stack", "cli", "--app", "tool", "--github", "e2e/repo"],
+      ["add", "spa", "web", "--deploy", "cloudflare"],
+    ],
+    after: cliChecks("tool", "packages/tool"),
+  },
   "spa-cloudflare": { commands: [["new", "--stack", "spa", "--deploy", "cloudflare"]] },
   "spa-multi": {
     commands: [
@@ -74,15 +95,15 @@ function runCase(name: string, testCase: Case) {
     sh("node", [cli, ...first, repo, ...versions, "--no-git", "--yes"], parent);
     for (const command of rest) sh("node", [cli, ...command, ...versions], repo);
 
-    const { repo: info } = JSON.parse(readFileSync(path.join(repo, ".stacks.json"), "utf8")) as {
-      repo: { uiPackage: string };
-    };
-    const playwright = ["--filter", info.uiPackage, "exec", "playwright", "install", "chromium"];
-    if (process.env.CI) playwright.push("--with-deps");
-    sh("pnpm", playwright, repo);
+    // What the generated repo's CI runs, in the same order.
+    const setup = ["-r", "--if-present", "run", "test:setup"];
+    if (process.env.CI) setup.push("--with-deps");
+    sh("pnpm", setup, repo);
     for (const script of ["lint", "format:check", "typecheck", "test", "build"]) {
       sh("pnpm", ["run", script], repo);
     }
+    sh("pnpm", ["-r", "--if-present", "run", "skills:check"], repo);
+    for (const [command, ...args] of testCase.after ?? []) sh(command as string, args, repo);
     console.log(`\n✔ ${name}`);
   } finally {
     if (values.keep) console.log(`Kept ${repo}`);

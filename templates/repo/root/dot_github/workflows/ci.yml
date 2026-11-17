@@ -32,6 +32,8 @@ jobs:
       - run: pnpm lint --format github
       - run: pnpm format:check
       - run: pnpm typecheck
+      # Packages that ship agent skills check them against their source (Intent).
+      - run: pnpm -r --if-present run skills:check
 
   test:
     name: Test
@@ -44,8 +46,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Unit tests, and every package's stories as browser tests in headless Chromium.
-      - run: pnpm --filter __UI_PKG__ exec playwright install --with-deps chromium
+      # Browsers for packages with browser tests (Storybook stories run in headless Chromium).
+      - run: pnpm -r --if-present run test:setup --with-deps
       - run: pnpm test
 
   build:

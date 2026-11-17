@@ -9,21 +9,26 @@ export function tokensFor(ctx: Ctx): Record<string, string> {
     REPO_NAME: ctx.repo.name,
     REPO_TITLE: ctx.repo.title,
     SCOPE: ctx.repo.scope,
-    UI_PKG: ctx.repo.uiPackage,
-    UI_STORYBOOK_PORT: String(ctx.ui.storybookPort),
+    GITHUB_REPO: ctx.repo.github,
     ACCENT: ctx.repo.accent,
     NODE_MAJOR: ctx.versions.node,
     PNPM_VERSION: ctx.versions.pnpm,
     TODAY: ctx.today,
   };
+  // Only what the context has: a template that names a UI token in a repo without a UI package,
+  // or a port for a package without one, fails as an unknown token.
+  if (ctx.ui) {
+    tokens.UI_PKG = ctx.ui.package;
+    tokens.UI_STORYBOOK_PORT = String(ctx.ui.storybookPort);
+  }
   if (ctx.app) {
-    Object.assign(tokens, {
-      APP_NAME: ctx.app.name,
-      APP_TITLE: ctx.app.title,
-      APP_DIR: `apps/${ctx.app.name}`,
-      DEV_PORT: String(ctx.app.devPort),
-      STORYBOOK_PORT: String(ctx.app.storybookPort),
-    });
+    tokens.APP_NAME = ctx.app.name;
+    tokens.APP_TITLE = ctx.app.title;
+    tokens.APP_DIR = ctx.app.dir;
+    tokens.PACKAGE_NAME = ctx.app.packageName;
+    tokens.BIN_NAME = ctx.app.packageName.split("/").at(-1) ?? ctx.app.packageName;
+    if (ctx.app.devPort !== undefined) tokens.DEV_PORT = String(ctx.app.devPort);
+    if (ctx.app.storybookPort !== undefined) tokens.STORYBOOK_PORT = String(ctx.app.storybookPort);
   }
   return tokens;
 }

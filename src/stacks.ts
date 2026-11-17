@@ -1,4 +1,5 @@
-import { deployCloudflareStatic, deployGhPages } from "./layers/deploy.ts";
+import { cli } from "./layers/cli.ts";
+import { deployCloudflareStatic, deployGhPages, releaseNpm } from "./layers/deploy.ts";
 import { repo } from "./layers/repo.ts";
 import { spa } from "./layers/spa.ts";
 import { ui } from "./layers/ui.ts";
@@ -7,6 +8,12 @@ import type { AppInfo, Layer, StackId } from "./model.ts";
 export interface StackDefinition {
   id: StackId;
   summary: string;
+  /** An app is deployed, from `apps/<name>`; a package is published, from `packages/<name>`. */
+  kind: "app" | "package";
+  /** Builds on `packages/ui`, which the first such app creates. */
+  needsUi: boolean;
+  /** Has a dev server and a Storybook, so gets ports. */
+  ports: boolean;
   /** The name `new` suggests for the first app. */
   defaultAppName: string;
   deploys: Record<string, { summary: string; layer: Layer }>;
@@ -15,12 +22,16 @@ export interface StackDefinition {
   layers: Layer[];
 }
 
-export const REPO_LAYERS: Layer[] = [repo, ui];
+export const REPO_LAYERS: Layer[] = [repo];
+export const UI_LAYER: Layer = ui;
 
 export const STACKS: Record<StackId, StackDefinition> = {
   spa: {
     id: "spa",
     summary: "Client-only app: Vite, TanStack Router, every page prerendered to static HTML",
+    kind: "app",
+    needsUi: true,
+    ports: true,
     defaultAppName: "web",
     deploys: {
       cloudflare: { summary: "Cloudflare Workers static assets", layer: deployCloudflareStatic },
@@ -29,6 +40,20 @@ export const STACKS: Record<StackId, StackDefinition> = {
     defaultDeploy: "cloudflare",
     addons: {},
     layers: [spa],
+  },
+  cli: {
+    id: "cli",
+    summary: "Command-line tool published to npm, shipping an agent skill through TanStack Intent",
+    kind: "package",
+    needsUi: false,
+    ports: false,
+    defaultAppName: "cli",
+    deploys: {
+      npm: { summary: "npm, with provenance, from a release workflow", layer: releaseNpm },
+    },
+    defaultDeploy: "npm",
+    addons: {},
+    layers: [cli],
   },
 };
 
