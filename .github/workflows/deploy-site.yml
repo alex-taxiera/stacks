@@ -1,0 +1,50 @@
+# Builds apps/site and deploys it to Cloudflare Workers (static assets) when it, the shared
+# UI package or the lockfile changes on trunk, or by hand.
+#
+# Needs two repository secrets: CLOUDFLARE_API_TOKEN, a token with the account's
+# "Workers Scripts: Edit" permission and "Workers Routes: Edit" on the taxiera.net zone (for the
+# stacks.taxiera.net custom domain), and CLOUDFLARE_ACCOUNT_ID.
+name: Deploy site
+
+on:
+  push:
+    branches: [trunk]
+    paths:
+      - apps/site/**
+      - packages/ui/**
+      # The stacks and add-ons tables are read from the CLI's source.
+      - packages/cli/src/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .github/workflows/deploy-site.yml
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-site
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  HUSKY: 0
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter site build
+      - name: Deploy
+        working-directory: apps/site
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm exec wrangler deploy

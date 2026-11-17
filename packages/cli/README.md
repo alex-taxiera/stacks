@@ -9,6 +9,8 @@ in place:
 - an `AGENTS.md` plus `.agents/` that sync to Claude Code, Cursor and VS Code
 - TanStack Intent, so agents can load the skills packages ship
 
+The full docs are at [stacks.taxiera.net](https://stacks.taxiera.net).
+
 ```sh
 pnpm dlx @alex-taxiera/stacks new my-repo --stack spa
 cd my-repo

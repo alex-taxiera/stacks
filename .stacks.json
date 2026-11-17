@@ -8,6 +8,10 @@
     "accent": "teal",
     "github": "alex-taxiera/stacks"
   },
+  "ui": {
+    "package": "@stacks/ui",
+    "storybookPort": 6008
+  },
   "apps": [
     {
       "name": "cli",
@@ -18,6 +22,18 @@
       "packageName": "@alex-taxiera/stacks",
       "deploy": "npm",
       "addons": []
+    },
+    {
+      "name": "site",
+      "title": "stacks",
+      "stack": "astro",
+      "kind": "app",
+      "dir": "apps/site",
+      "packageName": "site",
+      "deploy": "cloudflare",
+      "addons": [],
+      "devPort": 3000,
+      "storybookPort": 6009
     }
   ]
 }

@@ -35,6 +35,30 @@ package, live in `packages/<name>`.
     `@alex-taxiera/stacks#stacks` to anyone who installs it, this repo included.
 
 <!-- /stacks:block:app:cli -->
+<!-- stacks:block:ui -->
+
+- `packages/ui` (`@stacks/ui`) — the Chakra UI v3 snippets, theme, provider and shared Storybook
+  preview every app uses. Source only, no build step: import `@stacks/ui/<snippet>`,
+  `@stacks/ui/theme`, `@stacks/ui/storybook`. Storybook on 6008; `pnpm storybook` starts every
+  package's (VS Code does when the folder opens).
+
+<!-- /stacks:block:ui -->
+<!-- stacks:block:app:site -->
+
+- `apps/site` (package `site`) — stacks: a static site. Astro pages
+  (`src/pages`), Markdown posts (`src/content/posts`, typed in `src/content.config.ts`), and
+  React components for anything Chakra draws.
+  - `pnpm --filter site dev` (port 3000), `build`, `preview`; Storybook on 6009.
+  - A React component in a page renders to HTML at build time and ships no JavaScript;
+    `client:load` (or `client:visible`) makes it interactive. Ship JavaScript only where a
+    component responds to the user.
+  - Every React component a page uses directly is its own root, so it wraps itself in
+    `IslandProvider` (`@stacks/ui/island`). The layout renders `ChakraStyles` once, in `<head>`.
+  - `typecheck` covers `.astro` files too: `tsconfig.json`'s `contentMappers` hands them to
+    `@astrojs/ts-content-mapper`, which needs TypeScript 7.1+ and `tsc --runExternalCode`.
+    oxlint and oxfmt skip `.astro` files, so keep logic in `.ts` files.
+
+<!-- /stacks:block:app:site -->
 <!-- stacks:apps:end -->
 
 ## Commands
@@ -60,6 +84,13 @@ gets the same versions.
 - **Imports inside an app or package use `#/`** (`#/components/Header`) where its `tsconfig.json`
   has `paths`, and relative paths with extensions (`./greet.ts`) where it runs on Node directly.
 - **Types over casts** in TypeScript: narrow with a guard instead of `as`.
+- **The site documents the CLI.** `apps/site` is https://stacks.taxiera.net, made by
+  `stacks add astro site`. Its Markdown is docs, not posts: `src/content/docs`, ordered by
+  `order`, in place of the template's `src/content/posts`. A change to what `stacks` does updates
+  those docs in the same commit as the skill. The stacks and add-ons tables are read from
+  `packages/cli/src/stacks.ts` as the site builds (`src/stacks-data.ts`), so they need no edits.
+  The custom domain is in `apps/site/wrangler.jsonc`; the deploy token also needs "Workers
+  Routes: Edit" on the `taxiera.net` zone.
 
 <!-- stacks:rules:start -->
 <!-- stacks:block:skill:cli -->
@@ -79,9 +110,77 @@ gets the same versions.
   as a trusted publisher of `@alex-taxiera/stacks` on npmjs.com once, before the first release.
 
 <!-- /stacks:block:release:cli -->
+<!-- stacks:block:deploy:site -->
+
+- **`apps/site` deploys to Cloudflare Workers** (static assets, `wrangler.jsonc`) from `trunk` through `.github/workflows/deploy-site.yml`, which needs the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets.
+  Each pull request that changes it gets a preview (`.github/workflows/preview-site.yml`):
+  a version of the Worker uploaded but not deployed, linked from the run's summary. Previews
+  start working once the first deploy has created the Worker.
+
+<!-- /stacks:block:deploy:site -->
 <!-- stacks:rules:end -->
 
 <!-- stacks:ui:start -->
+<!-- stacks:block:ui -->
+
+## UI
+
+- **Chakra UI v3**, not v2: compound components (`Dialog.Root`, `Switch.Root`…) and
+  `colorPalette`. Check an unfamiliar component's API with the `chakra-ui` MCP server before using
+  it, and load the `chakra-ui-builder` skill (or `chakra-ui-refactor`) for UI work.
+- **Reach for a snippet before a compound component.** `packages/ui/src/components/ui` holds
+  Chakra's snippets, shared by every app, so a component writes `<Switch checked>Label</Switch>`,
+  not the five parts behind it. oxlint enforces it: importing a component that has a snippet (or
+  could have one) from `@chakra-ui/react` is an error outside `packages/ui/src` and `.storybook`.
+  Before writing UI, check what's there with the `storybook-ui` MCP's `docs-list`. Add a missing
+  snippet with `pnpm --filter @stacks/ui exec chakra snippet add <name> --tsx --outdir src/components/ui`,
+  convert it to React 19 style (`ref` as a prop, no `forwardRef`, no `"use client"`), import within
+  the package by relative path, and give it a story so `docs-show` documents it.
+- **Theme tokens, recipes and slot recipes live in `packages/ui/src/theme.ts`** and
+  `packages/ui/src/recipes`, one system for every app. Run `pnpm --filter @stacks/ui typegen` after
+  changing them so their props are typed. Use semantic tokens (`fg.muted`, `bg.subtle`,
+  `accent.fg`…) over raw colours so both colour modes work.
+- **Tell the user through a toast** from `@stacks/ui/notify`: `showError(title, error)` for anything
+  that failed (it shows the error's message), `showSuccess`, `showInfo`, `showWarning`, and
+  `showLoading(title, id)` for work in progress, which a later toast with the same `id` replaces.
+- **A select, segmented control or tab list over a string union** narrows the value it reports
+  with `findOption` (`@stacks/ui/options`), not a cast.
+
+### Storybook and its MCP servers
+
+Stories sit next to their component (`Header.tsx` and `Header.stories.tsx`) and every one runs as a
+test under `pnpm test`. Each package has its own Storybook; the app Storybooks compose the library's
+as a "UI library" ref. Shared preview setup (theme switcher, Chakra provider, toaster, a11y
+settings) is `@stacks/ui/storybook`; each package's `.storybook/preview.tsx` spreads `basePreview` and
+calls `resetUi()` in its `beforeEach`.
+
+- Use the `storybook-<package>` MCP tools before answering questions about or changing UI
+  components. Never guess props: call `docs-list` and `docs-show`, and use only props that are
+  documented or shown in example stories. If a prop isn't documented, ask instead of assuming.
+- Call `get-storybook-story-instructions` before creating or updating stories, and run `test-run`
+  to verify your changes.
+- Write or update a story when you create a reusable component or a snippet, or add props, states
+  or variants to one. Cover each state the component can reach (empty, loading, error…), not every
+  prop combination. Don't write stories for pages or thin wrappers.
+- Add a `play` function that checks the behaviour a story is about, with role- or label-based
+  queries. Chakra overlays (dialogs, tooltips, toasts) render in a portal: query them with
+  `screen`, not `canvas`, and `waitFor` them to finish animating in.
+- Don't wrap stories in a provider or add a `<Toaster />`; `.storybook/preview.tsx` does. Don't add
+  `tags: ["autodocs"]` or a `title`; titles come from the file path.
+- Prefer presentational components that take callbacks (`onSave`) so stories pass `fn()` args.
+
+### Accessibility
+
+Storybook's a11y addon runs axe on every story. Violations are reported in the a11y panel and by
+the MCP's `test-run`, but don't fail tests (`a11y.test: "todo"` in `@stacks/ui/storybook`).
+
+- Fix structural issues yourself: labels, roles, `aria-label` on icon-only buttons, alt text,
+  table headers, heading order.
+- Ask before changing anything visual, such as colour contrast, sizes or focus styles: describe
+  the issue and offer two or three options.
+- Don't turn rules off to make a report go away.
+
+<!-- /stacks:block:ui -->
 <!-- stacks:ui:end -->
 
 ## Working on stacks
@@ -136,6 +235,21 @@ from `pnpm dlx skills add <owner/repo>` and are pinned in `skills-lock.json`; sk
 inside packages are Intent's (above).
 
 <!-- stacks:mcp:start -->
+<!-- stacks:block:chakra-ui -->
+
+- `chakra-ui` — Chakra's component docs, props and examples.
+
+<!-- /stacks:block:chakra-ui -->
+<!-- stacks:block:storybook-ui -->
+
+- `storybook-ui` — `packages/ui`'s Storybook, port 6008. Each app's Storybook is `storybook-<app>`, and is only up while it runs.
+
+<!-- /stacks:block:storybook-ui -->
+<!-- stacks:block:storybook-site -->
+
+- `storybook-site` — `apps/site`'s Storybook, port 6009.
+
+<!-- /stacks:block:storybook-site -->
 <!-- stacks:mcp:end -->
 
 ## Commits

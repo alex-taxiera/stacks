@@ -1,0 +1,48 @@
+{
+  "name": "site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @stacks/ui typegen && astro dev",
+    "build": "pnpm --filter @stacks/ui typegen && astro build && tsc --noEmit --runExternalCode",
+    "preview": "astro preview",
+    "typecheck": "pnpm --filter @stacks/ui typegen && astro sync && tsc --noEmit --runExternalCode",
+    "test": "vitest run",
+    "storybook": "storybook dev -p 6009",
+    "ci-storybook": "storybook dev -p 6009 --quiet --ci",
+    "build-storybook": "storybook build",
+    "deploy": "pnpm run build && wrangler deploy"
+  },
+  "dependencies": {
+    "@astrojs/react": "catalog:",
+    "@chakra-ui/react": "catalog:",
+    "@emotion/react": "catalog:",
+    "@stacks/ui": "workspace:*",
+    "astro": "catalog:",
+    "next-themes": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-icons": "catalog:"
+  },
+  "devDependencies": {
+    "@astrojs/ts-content-mapper": "catalog:",
+    "@storybook/addon-a11y": "catalog:",
+    "@storybook/addon-docs": "catalog:",
+    "@storybook/addon-mcp": "catalog:",
+    "@storybook/addon-themes": "catalog:",
+    "@storybook/addon-vitest": "catalog:",
+    "@storybook/react-vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "@vitest/browser-playwright": "catalog:",
+    "playwright": "catalog:",
+    "storybook": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    // `src/stacks-data.ts` reads the CLI's source, which names `.ts` files in its imports.
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "#/*": ["./src/*"]
+    }
+  },
+  "contentMappers": [{ "package": "@astrojs/ts-content-mapper", "extensions": [".astro"] }],
+  "include": [
+    ".astro/types.d.ts",
+    "src",
+    ".storybook",
+    "astro.config.ts",
+    "vite.config.ts",
+    "vitest.shims.d.ts"
+  ],
+  "exclude": ["dist"]
+}
