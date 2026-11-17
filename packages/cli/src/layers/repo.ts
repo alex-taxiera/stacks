@@ -9,6 +9,8 @@ export const repo: Layer = (ctx) => ({
   packages: {
     root: {
       devDependencies: [
+        // stacks itself, at the version the repo was made or last updated with: `pnpm stacks`.
+        "@alex-taxiera/stacks",
         "@tanstack/intent",
         "@types/node",
         "husky",
@@ -26,6 +28,7 @@ export const repo: Layer = (ctx) => ({
         format: "oxfmt",
         "format:check": "oxfmt --check",
         skills: "intent list",
+        stacks: "stacks",
         prepare: "husky",
         "agents:sync": "node scripts/sync-agents.ts",
         postinstall: "pnpm run agents:sync",
@@ -44,8 +47,9 @@ export const repo: Layer = (ctx) => ({
         },
         engines: { node: `>=${ctx.versions.node}` },
         // The packages whose skills agents may load with `pnpm exec intent load`. Each layer adds
-        // its own: an app on TanStack Router adds `@tanstack/*`, a CLI here adds itself.
-        intent: { skills: [] },
+        // its own: an app on TanStack Router adds `@tanstack/*`, a CLI here adds itself. stacks'
+        // own skill is how agents learn to add apps and keep the managed parts current.
+        intent: { skills: ["@alex-taxiera/stacks"] },
         "lint-staged": {
           "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}": [
             "oxlint --fix --no-error-on-unmatched-pattern",
@@ -61,6 +65,9 @@ export const repo: Layer = (ctx) => ({
       packages: ["apps/*", "packages/*"],
       // Minutes. Skip releases younger than three days, as stacks' own version refresh does.
       minimumReleaseAge: 4320,
+      // stacks itself is tested against every stack before it ships, and `stacks update` wants it
+      // the day it does.
+      minimumReleaseAgeExclude: ["@alex-taxiera/stacks"],
       allowBuilds: { esbuild: true },
     },
   },

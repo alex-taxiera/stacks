@@ -18,7 +18,7 @@ pnpm test
 - `packages/*`: packages that publish, and `packages/ui`, the shared Chakra UI components, once
   an app needs them.
 
-Add another with `pnpm dlx @alex-taxiera/stacks add <stack> <name>` (`stacks list` shows the
+Add another with `pnpm stacks add <stack> <name>` (`pnpm stacks list` shows the
 stacks).
 
 ## Tooling

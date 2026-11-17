@@ -32,6 +32,8 @@ export interface PackagePolicy {
   range?: string;
   /** Follow this dist-tag instead of `latest`, such as `beta` for a package with no stable line. */
   tag?: string;
+  /** Overrides the policy's `minReleaseAgeDays`, such as 0 for a package whose release its own CI gates. */
+  minReleaseAgeDays?: number;
   /** Match the Node major (for `@types/node`). */
   trackNode?: boolean;
   /** Why the policy exists, for whoever lifts it. */

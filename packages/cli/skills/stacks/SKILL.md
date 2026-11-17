@@ -29,10 +29,13 @@ A repo with a `.stacks.json` at its root was made by stacks. It's a pnpm workspa
 ## Add an app or package with `stacks add`, never by copying one
 
 ```sh
-pnpm dlx @alex-taxiera/stacks list                         # stacks, deploy targets, add-ons
-pnpm dlx @alex-taxiera/stacks add spa docs --deploy gh-pages --with e2e
-pnpm dlx @alex-taxiera/stacks add cli tool --package-name @me/tool
+pnpm stacks list                         # stacks, deploy targets, add-ons
+pnpm stacks add spa docs --deploy gh-pages --with e2e
+pnpm stacks add cli tool --package-name @me/tool
 ```
+
+`pnpm stacks` runs the version the repo depends on (a root devDependency). In a repo made before
+stacks was on npm, use `pnpm dlx @alex-taxiera/stacks` instead.
 
 `add` does several things that copying an app misses:
 
@@ -60,8 +63,8 @@ file that exists, and it fails if the name is taken.
 ## Bring the managed parts up to date with `stacks update`
 
 ```sh
-pnpm dlx @alex-taxiera/stacks update           # rewrite them, then pnpm run format and commit
-pnpm dlx @alex-taxiera/stacks update --check   # exit 1 if anything would change
+pnpm stacks update           # rewrite them, then pnpm run format and commit
+pnpm stacks update --check   # exit 1 if anything would change
 ```
 
 It rewrites AGENTS.md's stacks blocks and `.agents/mcp.json`'s servers as the current stacks

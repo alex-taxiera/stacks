@@ -5,6 +5,7 @@
   "node": "24",
   "pnpm": "12.21.0",
   "npm": {
+    "@alex-taxiera/stacks": "0.1.0",
     "@astrojs/react": "7.1.9",
     "@chakra-ui/cli": "3.38.0",
     "@chakra-ui/react": "3.38.0",

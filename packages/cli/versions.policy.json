@@ -8,6 +8,10 @@
     "@types/node": {
       "trackNode": true,
       "reason": "Types for the Node major in .nvmrc, not the newest Node."
+    },
+    "@alex-taxiera/stacks": {
+      "minReleaseAgeDays": 0,
+      "reason": "stacks itself: its own CI scaffolds and checks every stack before a release."
     }
   },
   "groups": {
@@ -45,7 +49,8 @@
     "cloudflare": ["wrangler"],
     "tauri": ["@tauri-apps/*"],
     "astro": ["astro", "@astrojs/*"],
-    "server": ["better-auth", "drizzle-orm", "drizzle-kit", "pg", "@types/pg", "zod", "dotenv-cli"]
+    "server": ["better-auth", "drizzle-orm", "drizzle-kit", "pg", "@types/pg", "zod", "dotenv-cli"],
+    "stacks": ["@alex-taxiera/stacks"]
   },
   "images": {
     "postgres": {

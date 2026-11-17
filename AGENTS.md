@@ -39,14 +39,15 @@ package, live in `packages/<name>`.
 
 ## Commands
 
-| Task             | Command                                                                       |
-| ---------------- | ----------------------------------------------------------------------------- |
-| Install          | `pnpm install` (also runs `agents:sync`; `corepack enable` once for pnpm)     |
-| Tests            | `pnpm test`                                                                   |
-| Typecheck, build | `pnpm typecheck` / `pnpm build`                                               |
-| Lint, format     | `pnpm lint` / `pnpm format` (oxlint and oxfmt, from the root)                 |
-| Agent skills     | `pnpm skills` (Intent's `list`); `pnpm exec intent load <package>#<skill>`    |
-| Add an app       | `pnpm dlx @alex-taxiera/stacks add <stack> <name>` (`stacks list` for stacks) |
+| Task                 | Command                                                                      |
+| -------------------- | ---------------------------------------------------------------------------- |
+| Install              | `pnpm install` (also runs `agents:sync`; `corepack enable` once for pnpm)    |
+| Tests                | `pnpm test`                                                                  |
+| Typecheck, build     | `pnpm typecheck` / `pnpm build`                                              |
+| Lint, format         | `pnpm lint` / `pnpm format` (oxlint and oxfmt, from the root)                |
+| Agent skills         | `pnpm skills` (Intent's `list`); `pnpm exec intent load <package>#<skill>`   |
+| Add an app           | `pnpm stacks add <stack> <name>` (`pnpm stacks list` for stacks)             |
+| Update stacks' parts | `pnpm stacks update` (the AGENTS.md blocks and MCP servers; `--check` in CI) |
 
 Run one package's script with `pnpm --filter <name> <script>`. Shared dependency versions live in
 the `catalog:` in `pnpm-workspace.yaml`; a package asks for one with `"catalog:"`, so every package

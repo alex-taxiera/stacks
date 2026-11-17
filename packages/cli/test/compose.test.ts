@@ -102,7 +102,7 @@ describe("new --stack spa", () => {
       "package.json",
     );
     expect(rootPackage.packageManager).toBe(`pnpm@${versions.pnpm}`);
-    expect(rootPackage.intent.skills).toEqual(["@tanstack/*"]);
+    expect(rootPackage.intent.skills).toEqual(["@alex-taxiera/stacks", "@tanstack/*"]);
     const workspace = parse(await read("pnpm-workspace.yaml")) as {
       packages: string[];
       catalog: Record<string, string>;
@@ -172,7 +172,7 @@ describe("new --stack cli", () => {
       intent: { skills: string[] };
     }>("package.json");
     expect(rootPackage.devDependencies["@me/greeter"]).toBe("workspace:*");
-    expect(rootPackage.intent.skills).toEqual(["workspace:@me/greeter"]);
+    expect(rootPackage.intent.skills).toEqual(["@alex-taxiera/stacks", "workspace:@me/greeter"]);
 
     const skill = await read("packages/cli/skills/greeter/SKILL.md");
     expect(skill).toContain(`library: "@me/greeter"`);

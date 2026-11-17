@@ -158,6 +158,9 @@ function runCase(name: string, testCase: Case) {
       sh("pnpm", ["run", script], repo);
     }
     sh("pnpm", ["-r", "--if-present", "run", "skills:check"], repo);
+    // stacks itself, installed from npm: its bin runs and Intent serves its skill.
+    sh("pnpm", ["stacks", "list"], repo);
+    sh("pnpm", ["exec", "intent", "load", "@alex-taxiera/stacks#stacks"], repo);
     for (const [command, ...args] of testCase.after ?? []) sh(command as string, args, repo);
     testCase.verify?.(repo);
     console.log(`\n✔ ${name}`);

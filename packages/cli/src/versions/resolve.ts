@@ -243,7 +243,7 @@ export async function refreshSnapshot(
   const versions = await mapLimit(packages, 8, async (name) => {
     const version = await resolveNpm(name, {
       policy: policy.packages[name],
-      minAgeDays,
+      minAgeDays: policy.packages[name]?.minReleaseAgeDays ?? minAgeDays,
       nodeMajor: next.node,
       now,
       fetchFn,
