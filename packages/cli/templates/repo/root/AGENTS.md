@@ -3,8 +3,10 @@
 Guide for coding agents working in this repo. Read [README.md](README.md) for what it is.
 
 Sections between `<!-- stacks:… -->` markers are managed by [stacks](https://github.com/alex-taxiera/stacks):
-`stacks add` and `stacks update` rewrite them. Edit outside the markers freely.
+`stacks add` and `stacks update` rewrite them. Edit outside the markers freely. Skill Loading is
+Intent's: `pnpm exec intent install` writes it, word for word, and oxfmt leaves it alone.
 
+<!-- prettier-ignore-start -->
 <!-- intent-skills:start -->
 ## Skill Loading
 
@@ -16,6 +18,7 @@ Before editing files for a substantial task:
 - Monorepos: when working across packages, run the skill check from the workspace root and prefer the local skill for the package being changed.
 - Multiple matches: prefer the most specific local skill for the package or concern you are changing; load additional skills only when the task spans multiple packages or concerns.
 <!-- intent-skills:end -->
+<!-- prettier-ignore-end -->
 
 ## Shape
 
