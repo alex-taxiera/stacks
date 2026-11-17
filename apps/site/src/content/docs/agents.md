@@ -48,3 +48,17 @@ before adding an app or changing what stacks manages:
 ```sh
 pnpm exec intent load @alex-taxiera/stacks#stacks
 ```
+
+## Release skills
+
+Every `tauri` and `cli` app comes with a skill in the repo, `.agents/skills/release-<name>`, that
+walks an agent through releasing it:
+
+- whether anything has changed since the last release, and whether CI is green
+- the version, picked with you
+- release notes written for the app's users, not its developers
+- the release workflow, run or tagged only after you say yes
+- a check of what went out: the installers in a draft, or the version on npm with provenance
+- what to do when a run fails partway, and when a bad release has gone out
+
+Ask your agent to "release the CLI", and it loads the skill.

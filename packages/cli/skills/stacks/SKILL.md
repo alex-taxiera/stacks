@@ -75,6 +75,8 @@ app itself:
   add-on prompt doesn't offer it.
 - `titlebar` and `screenshots` (tauri) each bring a skill or AGENTS.md rule that says how to work
   with them; follow it when you change the app's header or anything a screenshot shows.
+- Every `tauri` and `cli` app gets a release skill, `.agents/skills/release-<name>`, with every
+  step, check and recovery of its release workflow. Load it to cut, finish or fix a release.
 
 Run `add` from anywhere inside the repo, then review `git diff` and commit. It never overwrites a
 file that exists, and it fails if the name is taken.
