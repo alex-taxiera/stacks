@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
@@ -6,7 +6,24 @@ import * as p from "@clack/prompts";
 
 import { Overlay } from "../compose/overlay.ts";
 import { capture, run } from "../exec.ts";
-import type { StackId, StacksFile } from "../model.ts";
+import type { StacksFile } from "../model.ts";
+import {
+  ACCENTS,
+  answer,
+  appNameProblem,
+  confirmPlan,
+  equivalentCommand,
+  intro,
+  isGithubRepo,
+  isInteractive,
+  isPackageName,
+  promptAddons,
+  promptConfirm,
+  promptDeploy,
+  promptStack,
+  promptText,
+  wasAsked,
+} from "../prompts.ts";
 import {
   composeApp,
   ensurePnpm,
@@ -23,6 +40,8 @@ import {
 import { isStackId, STACKS } from "../stacks.ts";
 
 const HELP = `stacks new [dir] [options] — a new repo with its first app
+
+In a terminal it asks for anything not given; elsewhere, or with --yes, it takes the defaults.
 
 Options:
   --stack <id>          ${Object.keys(STACKS).join(" | ")}
@@ -43,11 +62,15 @@ Options:
   -y, --yes             Take the defaults for anything not given; never prompt
 `;
 
-function bail(value: unknown): asserts value is string | string[] {
-  if (p.isCancel(value)) {
-    p.cancel("Cancelled.");
-    process.exit(1);
-  }
+/** Why `dir` can't take a new repo, if it can't. */
+function dirProblem(dir: string): string | undefined {
+  if (!dir) return "Give it a directory.";
+  const root = path.resolve(dir);
+  if (existsSync(root) && (!statSync(root).isDirectory() || readdirSync(root).length > 0))
+    return `${root} isn't an empty directory.`;
+  if (!kebab(path.basename(root)))
+    return `Can't make a package name from "${path.basename(root)}".`;
+  return undefined;
 }
 
 export async function newCommand(argv: string[]) {
@@ -66,8 +89,9 @@ export async function newCommand(argv: string[]) {
       accent: { type: "string" },
       versions: { type: "string" },
       "versions-file": { type: "string" },
-      install: { type: "boolean", default: true },
-      git: { type: "boolean", default: true },
+      // No defaults: unset means "ask in a terminal, otherwise yes".
+      install: { type: "boolean" },
+      git: { type: "boolean" },
       yes: { type: "boolean", short: "y" },
       help: { type: "boolean", short: "h" },
     },
@@ -76,86 +100,137 @@ export async function newCommand(argv: string[]) {
     console.log(HELP);
     return;
   }
-  const interactive = !values.yes && process.stdin.isTTY;
+  const interactive = isInteractive(values.yes);
   const versionsMode = parseVersionsMode(values.versions);
 
-  p.intro("stacks new");
+  intro("stacks new");
   const pnpmVersion = await ensurePnpm();
 
   let dir = positionals[0];
   if (!dir) {
     if (!interactive) throw new Error("Give the new repo's directory: stacks new <dir>");
-    const answer = await p.text({ message: "Where should the repo go?", placeholder: "my-app" });
-    bail(answer);
-    dir = answer;
+    dir = await promptText({
+      message: "Where should the repo go?",
+      placeholder: "my-app",
+      validate: dirProblem,
+    });
   }
+  const problem = dirProblem(dir);
+  if (problem) throw new Error(problem);
   const root = path.resolve(dir);
-  if (existsSync(root) && readdirSync(root).length > 0) throw new Error(`${root} isn't empty`);
   const repoName = kebab(path.basename(root));
-  if (!repoName) throw new Error(`Can't make a package name from "${path.basename(root)}"`);
+
+  let title = values.title;
+  if (title === undefined && interactive) {
+    title = await promptText({
+      message: "The repo's title",
+      initialValue: titleCase(repoName),
+      validate: (value) => (value ? undefined : "Give it a title."),
+    });
+  }
+  title ??= titleCase(repoName);
+
+  let github = values.github;
+  if (github === undefined) {
+    const owner = githubOwner();
+    if (interactive) {
+      github = await promptText({
+        message: "Where it lives on GitHub (owner/repo)",
+        initialValue: owner ? `${owner}/${repoName}` : undefined,
+        placeholder: `owner/${repoName}`,
+        validate: (value) => (isGithubRepo(value) ? undefined : "Write it as owner/repo."),
+      });
+    } else github = `${owner ?? "OWNER"}/${repoName}`;
+  }
 
   let stackId = values.stack;
   if (!stackId) {
     if (!interactive)
       throw new Error(`Choose a stack with --stack: ${Object.keys(STACKS).join(", ")}`);
-    const answer = await p.select({
-      message: "Which stack is the first app?",
-      options: Object.values(STACKS).map((stack) => ({
-        value: stack.id,
-        label: stack.id,
-        hint: stack.summary,
-      })),
-    });
-    bail(answer);
-    stackId = answer;
+    stackId = (await promptStack("Which stack is the first app?")).id;
   }
   if (!isStackId(stackId))
     throw new Error(`Unknown stack "${stackId}"; choose ${Object.keys(STACKS).join(", ")}`);
-  const stack = STACKS[stackId as StackId];
+  const stack = STACKS[stackId];
 
   let appName = values.app;
   if (!appName && interactive) {
-    const answer = await p.text({
+    appName = await promptText({
       message: `Its folder name, under ${stack.kind === "package" ? "packages" : "apps"}/`,
       initialValue: stack.defaultAppName,
+      validate: (value) => appNameProblem(value, stack),
     });
-    bail(answer);
-    appName = answer;
   }
   appName = kebab(appName ?? stack.defaultAppName);
 
-  let deploy = values.deploy;
-  if (!deploy && interactive && Object.keys(stack.deploys).length > 1) {
-    const answer = await p.select({
-      message: "Where does it deploy?",
-      initialValue: stack.defaultDeploy,
-      options: Object.entries(stack.deploys).map(([id, target]) => ({
-        value: id,
-        label: id,
-        hint: target.summary,
-      })),
+  let packageName = values["package-name"];
+  if (packageName === undefined && interactive && stack.kind === "package") {
+    packageName = await promptText({
+      message: "Its package name on npm",
+      initialValue: appName,
+      validate: (value) => (isPackageName(value) ? undefined : "That isn't a valid npm name."),
     });
-    bail(answer);
-    deploy = answer;
+    if (packageName === appName) packageName = undefined;
   }
+
+  let deploy = values.deploy;
+  if (!deploy && interactive) deploy = await promptDeploy(stack);
   deploy ??= stack.defaultDeploy;
 
   let addons = values.with
     ?.split(",")
     .map((addon) => addon.trim())
     .filter(Boolean);
-  if (!addons && interactive && Object.keys(stack.addons).length > 0) {
-    const answer = await p.multiselect({
-      message: "Add-ons",
-      required: false,
-      options: Object.entries(stack.addons).map(([id, addon]) => ({
-        value: id,
-        label: id,
-        hint: addon.summary,
-      })),
+  if (!addons && interactive) addons = await promptAddons(stack, deploy, []);
+  addons ??= [];
+
+  let accent = values.accent;
+  if (accent === undefined && interactive && stack.needsUi) {
+    accent = answer(
+      await p.select({
+        message: "The accent colour, a Chakra palette",
+        initialValue: "teal",
+        options: ACCENTS.map((palette) => ({ value: palette, label: palette })),
+      }),
+    );
+  }
+  accent ??= "teal";
+
+  const install =
+    values.install ?? (interactive ? await promptConfirm("Install dependencies?") : true);
+  const git =
+    values.git ??
+    (interactive ? await promptConfirm("Make a git repo with a first commit?") : true);
+
+  if (wasAsked()) {
+    const command = equivalentCommand(["stacks", "new", dir], {
+      stack: stack.id,
+      app: appName,
+      "package-name": packageName,
+      title,
+      github,
+      deploy,
+      with: addons,
+      accent: stack.needsUi ? accent : undefined,
+      versions: values.versions,
+      "versions-file": values["versions-file"],
+      install: install ? undefined : false,
+      git: git ? undefined : false,
+      yes: true,
     });
-    bail(answer);
-    addons = answer;
+    const folder = `${stack.kind === "package" ? "packages" : "apps"}/${appName}`;
+    const summary: [string, string][] = [
+      ["Repo", `${path.relative(process.cwd(), root) || "."}: ${title}, ${github}`],
+      [stack.kind === "package" ? "Package" : "App", `${folder}: ${stack.id} → ${deploy}`],
+      ["Add-ons", addons.length > 0 ? addons.join(", ") : "none"],
+    ];
+    if (stack.needsUi) summary.push(["Accent", accent]);
+    const then = [install && "install", git && "first commit"].filter(Boolean).join(", ");
+    summary.push(["Then", then || "nothing"]);
+    if (!(await confirmPlan(summary, command))) {
+      p.cancel("Nothing written.");
+      return;
+    }
   }
 
   const { snapshot, source } = await loadVersions(
@@ -164,7 +239,6 @@ export async function newCommand(argv: string[]) {
   );
   p.log.info(`Versions: ${source}`);
 
-  const title = values.title ?? titleCase(repoName);
   const empty: StacksFile = {
     version: 1,
     cli: "",
@@ -172,8 +246,8 @@ export async function newCommand(argv: string[]) {
       name: repoName,
       title,
       scope: `@${repoName}`,
-      accent: values.accent ?? "teal",
-      github: values.github ?? `${githubOwner() ?? "OWNER"}/${repoName}`,
+      accent,
+      github,
     },
     apps: [],
   };
@@ -182,8 +256,8 @@ export async function newCommand(argv: string[]) {
     // The first app is often the repo's reason for being, so it takes the repo's title.
     title: ["web", "cli"].includes(appName) ? title : undefined,
     deploy,
-    addons: addons ?? [],
-    packageName: values["package-name"],
+    addons,
+    packageName,
   });
 
   const overlay = new Overlay(root);
@@ -202,7 +276,6 @@ export async function newCommand(argv: string[]) {
   }
   for (const warning of warnings) p.log.warn(warning);
 
-  const install = values.install !== false;
   await runPost(
     root,
     [
@@ -214,7 +287,7 @@ export async function newCommand(argv: string[]) {
     },
   );
 
-  if (values.git !== false) {
+  if (git) {
     const status = progress("Making the first commit");
     try {
       await run("git", ["init", "-b", "trunk"], { cwd: root });

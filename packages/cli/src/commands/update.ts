@@ -6,6 +6,7 @@ import * as p from "@clack/prompts";
 
 import { Overlay } from "../compose/overlay.ts";
 import { CLI_VERSION } from "../paths.ts";
+import { intro } from "../prompts.ts";
 import {
   findRoot,
   loadVersions,
@@ -61,7 +62,7 @@ export async function updateCommand(argv: string[]) {
     );
   const file = readStacksFile(root);
 
-  p.intro(values.check ? "stacks update --check" : "stacks update");
+  intro(values.check ? "stacks update --check" : "stacks update");
   const { snapshot } = await loadVersions(
     { mode: parseVersionsMode(values.versions), file: values["versions-file"] },
     (message) => p.log.warn(message),

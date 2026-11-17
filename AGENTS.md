@@ -90,8 +90,8 @@ stacks is built the way it builds others: this repo is what `stacks new --stack 
 `packages/cli` is the CLI. It ships the `stacks` skill (`pnpm exec intent load
 @alex-taxiera/stacks#stacks`); load it, and its `references/layers.md`, before changing a layer.
 
-- `packages/cli/src/cli.ts` — the entry point; `src/commands/` has `new`, `add`, `list` and
-  `versions`.
+- `packages/cli/src/cli.ts` — the entry point; `src/commands/` has `new`, `add`, `list`,
+  `update` and `versions`; `src/prompts.ts` has the questions they ask in a terminal.
 - `packages/cli/src/layers/` — one function per layer, `(ctx) => LayerSpec`. `src/stacks.ts` says
   which layers make each stack.
 - `packages/cli/templates/<layer>/{root,ui,app}/` — the files each layer copies.

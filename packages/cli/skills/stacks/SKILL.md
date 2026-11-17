@@ -10,6 +10,8 @@ metadata:
   library: "@alex-taxiera/stacks"
   library_version: "0.1.0"
 sources:
+  - "packages/cli/src/cli.ts"
+  - "packages/cli/src/prompts.ts"
   - "packages/cli/src/stacks.ts"
   - "packages/cli/src/commands/add.ts"
   - "packages/cli/src/commands/new.ts"
@@ -34,6 +36,13 @@ pnpm stacks list                         # stacks, deploy targets, add-ons
 pnpm stacks add spa docs --deploy gh-pages --with e2e
 pnpm stacks add cli tool --package-name @me/tool
 ```
+
+**Agents pass flags.** In a terminal, a bare `stacks` asks what to do, and `new` and `add` ask for
+anything not given. That covers the stack, the name, the deploy target, the add-ons and whether to
+install. The add-ons are a multiselect that greys out any the deploy target or the repo rules out.
+Then they show the plan and the same command without prompts. Without a terminal, or with `--yes`,
+nothing is asked: `add` needs `<stack> <name>`, `new` needs `<dir> --stack <id>`, and everything
+else takes its default.
 
 `pnpm stacks` runs the version the repo depends on (a root devDependency). In a repo made before
 stacks was on npm, use `pnpm dlx @alex-taxiera/stacks` instead.
@@ -62,7 +71,8 @@ Add-ons go in `--with`; `pnpm stacks list` shows which stack takes which. Some n
 app itself:
 
 - `worker` (spa, astro) needs `--deploy cloudflare`.
-- `downloads` (astro) offers the repo's first tauri app, so add that app first.
+- `downloads` (astro) offers the repo's first tauri app, so add that app first. Until then, the
+  add-on prompt doesn't offer it.
 - `titlebar` and `screenshots` (tauri) each bring a skill or AGENTS.md rule that says how to work
   with them; follow it when you change the app's header or anything a screenshot shows.
 

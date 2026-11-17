@@ -32,8 +32,14 @@ export interface StackDefinition {
   defaultAppName: string;
   deploys: Record<string, { summary: string; layer: Layer }>;
   defaultDeploy: string;
-  /** An add-on with `deploys` works only with those deploy targets. */
-  addons: Record<string, { summary: string; layer: Layer; deploys?: string[] }>;
+  /**
+   * An add-on with `deploys` works only with those deploy targets; one with `needsStack` only in a
+   * repo that already has an app of that stack.
+   */
+  addons: Record<
+    string,
+    { summary: string; layer: Layer; deploys?: string[]; needsStack?: StackId }
+  >;
   layers: Layer[];
 }
 
@@ -114,6 +120,7 @@ export const STACKS: Record<StackId, StackDefinition> = {
       downloads: {
         summary: "A download page for the repo's desktop app, from its latest GitHub release",
         layer: addonDownloads,
+        needsStack: "tauri",
       },
     },
     layers: [astro],
