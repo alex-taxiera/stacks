@@ -138,6 +138,26 @@ export async function resolveImage(
   return tags.toSorted((a, b) => compareTags(regex, b, a))[0] as string;
 }
 
+interface CratesIoCrate {
+  crate: { max_stable_version: string | null };
+}
+
+/**
+ * The requirement for the newest stable release of a crate on crates.io: its major, or
+ * `0.minor` before 1.0, where a minor is what breaks.
+ */
+export async function resolveCrate(name: string, fetchFn: Fetch = fetch): Promise<string> {
+  const body = await getJson<CratesIoCrate>(
+    fetchFn,
+    `https://crates.io/api/v1/crates/${name}`,
+    // crates.io turns away requests without a User-Agent naming the client.
+    { "user-agent": "stacks-version-resolver" },
+  );
+  const version = semver.parse(body.crate.max_stable_version);
+  if (!version) throw new Error(`${name}: crates.io lists no stable version`);
+  return version.major > 0 ? String(version.major) : `0.${version.minor}`;
+}
+
 interface NodeRelease {
   version: string;
   lts: string | false;
@@ -184,6 +204,8 @@ export interface RefreshOptions {
   actions: string[];
   /** Every Docker image the templates use. */
   images: string[];
+  /** Every Rust crate the templates use. */
+  crates: string[];
   policy: Policy;
   /** Only refresh these groups (all when empty). `node`, `pnpm` and `actions` are groups too. */
   groups?: string[];
@@ -254,6 +276,15 @@ export async function refreshSnapshot(
     });
   }
 
+  next.crates ??= {};
+  if (wants("rust")) {
+    const requirements = await mapLimit(options.crates, 4, (name) => resolveCrate(name, fetchFn));
+    options.crates.forEach((name, index) => {
+      next.crates[name] = requirements[index] as string;
+      onProgress(`${name} ${requirements[index]}`);
+    });
+  }
+
   // Drop what nothing uses any more, and keep the files' order stable for diffs.
   const used = new Set(options.packages);
   next.npm = Object.fromEntries(
@@ -273,12 +304,18 @@ export async function refreshSnapshot(
       .filter(([image]) => usedImages.has(image))
       .toSorted(([a], [b]) => a.localeCompare(b)),
   );
+  const usedCrates = new Set(options.crates);
+  next.crates = Object.fromEntries(
+    Object.entries(next.crates)
+      .filter(([name]) => usedCrates.has(name))
+      .toSorted(([a], [b]) => a.localeCompare(b)),
+  );
   next.updated = now.toISOString().slice(0, 10);
   return next;
 }
 
 export interface Change {
-  kind: "npm" | "action" | "image" | "node" | "pnpm";
+  kind: "npm" | "action" | "image" | "crate" | "node" | "pnpm";
   name: string;
   from?: string;
   to: string;
@@ -354,6 +391,19 @@ export function diffSnapshots(from: Snapshot, to: Snapshot, policy: Policy): Cha
       to: tag,
       group: "docker",
       major: isMajor(previous, tag),
+    });
+  }
+  for (const [name, requirement] of Object.entries(to.crates ?? {})) {
+    const previous = from.crates?.[name];
+    if (previous === requirement) continue;
+    // A requirement only moves on a breaking release.
+    changes.push({
+      kind: "crate",
+      name,
+      from: previous,
+      to: requirement,
+      group: "rust",
+      major: true,
     });
   }
   return changes;

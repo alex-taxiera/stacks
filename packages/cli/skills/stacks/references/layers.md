@@ -21,13 +21,18 @@ Its files live in `packages/cli/templates/<layer id>/{root,ui,app}/`:
   - `__APP_NAME__`, `__APP_DIR__`, `__PACKAGE_NAME__`, `__BIN_NAME__`
   - `__UI_PKG__` (only when there's a UI package)
   - `__DEV_PORT__`, `__DOCKER_PORT__`, `__DB_PORT__` (only for apps with ports)
+  - `__APP_LIB__` (`<name>_lib`, a Tauri app's Rust library) and `__APP_IDENTIFIER__` (its bundle id)
   - `__ACTION[owner/repo]__`, for a GitHub Action's version
   - `__IMAGE[name]__`, for a Docker image and its tag, such as `postgres:18-alpine`
+  - `__CRATE[name]__`, for a Rust crate's requirement in `Cargo.toml`: its major, such as `2`
+    (Cargo.lock pins the rest)
 
 ## Which layers run
 
 - `new` applies `repo` once.
 - Any app whose stack has `needsUi` applies `ui` first, if the repo has no UI package yet.
+- Any app whose stack has `needsRust` applies `rust` (the Cargo workspace, `crates/core`, the CI
+  job) first, if the repo has no `Cargo.toml` yet.
 - Then the app's own layers run, in order: the stack's, its deploy target's, then its add-ons'.
 
 All of this happens in `composeApp` (`src/scaffold.ts`), on an `Overlay`, which writes nothing

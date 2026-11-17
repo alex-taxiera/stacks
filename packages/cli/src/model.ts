@@ -1,6 +1,6 @@
 import type { Snapshot } from "./versions/types.ts";
 
-export type StackId = "spa" | "start" | "cli";
+export type StackId = "spa" | "start" | "tauri" | "cli";
 
 export interface RepoInfo {
   /** The directory and root package name, kebab-case. */

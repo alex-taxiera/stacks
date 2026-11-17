@@ -8,7 +8,7 @@
 //   node scripts/e2e.ts --case spa-multi --keep      keep the scaffold to look at
 
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { parseArgs } from "node:util";
@@ -18,7 +18,12 @@ interface Case {
   commands: string[][];
   /** Commands run in the repo after the usual checks, such as a CLI's own and Intent's. */
   after?: string[][];
+  /** Checks that need more than a command, run last. */
+  verify?: (repo: string) => void;
 }
+
+/** A file's text with Unix line endings. */
+const lines = (file: string) => readFileSync(file, "utf8").replaceAll("\r\n", "\n");
 
 /** A CLI's checks: its skill is valid, Intent finds and loads it, and the built bin runs. */
 const cliChecks = (pkg: string, dir: string): string[][] => [
@@ -56,6 +61,27 @@ const CASES: Record<string, Case> = {
   "start-cloudflare": {
     commands: [["new", "--stack", "start", "--deploy", "cloudflare", "--with", "e2e,zustand"]],
     after: [["pnpm", "--filter", "web", "exec", "wrangler", "deploy", "--dry-run"]],
+  },
+  // Two desktop apps in one Cargo workspace: the first makes it and crates/core, the second only
+  // joins. The Rust side is checked as the generated CI checks it.
+  tauri: {
+    commands: [
+      ["new", "--stack", "tauri", "--with", "zustand"],
+      ["add", "tauri", "viewer"],
+    ],
+    after: [
+      ["cargo", "fmt", "--all", "--check"],
+      ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"],
+      ["cargo", "test", "--workspace"],
+    ],
+    // Against the template, not the scaffold: `cargo test` has already rewritten the file, as
+    // ts-rs writes it before oxfmt does.
+    verify: (repo) => {
+      sh("pnpm", ["bindings"], repo);
+      const written = lines(path.join(repo, "apps/desktop/src/bindings/Greeting.ts"));
+      if (written !== lines(path.join(root, "templates/tauri/app/src/bindings/Greeting.ts")))
+        throw new Error("The template's bindings differ from what ts-rs writes for crates/core");
+    },
   },
   // A start app added beside a spa: it shares packages/ui and takes the next ports. Its image
   // builds from the repo root, migrate stage included.
@@ -126,6 +152,7 @@ function runCase(name: string, testCase: Case) {
     }
     sh("pnpm", ["-r", "--if-present", "run", "skills:check"], repo);
     for (const [command, ...args] of testCase.after ?? []) sh(command as string, args, repo);
+    testCase.verify?.(repo);
     console.log(`\n✔ ${name}`);
   } finally {
     if (values.keep) console.log(`Kept ${repo}`);

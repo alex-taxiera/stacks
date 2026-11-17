@@ -190,3 +190,23 @@ export const deployCloudflareSsr: Layer = (ctx) => {
     ],
   };
 };
+
+/** Installers for every desktop platform, built on a version tag into a draft GitHub release. */
+export const releaseGithub: Layer = (ctx) => {
+  const name = ctx.app?.name ?? "desktop";
+  return {
+    id: "release-github",
+    agents: [
+      {
+        region: "rules",
+        id: `release:${name}`,
+        body: [
+          `- **\`apps/${name}\` releases from \`.github/workflows/release-${name}.yml\`**: set the version in`,
+          `  \`apps/${name}/src-tauri/tauri.conf.json\`, push the tag \`${name}@v<version>\` (or run the workflow by hand),`,
+          "  then publish the draft release it makes once its installers are attached. Installers",
+          "  aren't code-signed: Windows SmartScreen and macOS Gatekeeper warn until they are.",
+        ].join("\n"),
+      },
+    ],
+  };
+};

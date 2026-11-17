@@ -1,11 +1,11 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
-import { actionsIn, imagesIn } from "./compose/tokens.ts";
+import { actionsIn, cratesIn, imagesIn } from "./compose/tokens.ts";
 import type { AppInfo, Ctx, Layer, LayerSpec } from "./model.ts";
 import { TEMPLATES_DIR } from "./paths.ts";
 import { makeApp } from "./scaffold.ts";
-import { appLayers, REPO_LAYERS, STACKS, UI_LAYER } from "./stacks.ts";
+import { appLayers, REPO_LAYERS, RUST_LAYER, STACKS, UI_LAYER } from "./stacks.ts";
 import type { Snapshot } from "./versions/types.ts";
 
 /** A context every layer can be evaluated in, to list what it asks for. */
@@ -19,6 +19,7 @@ function sampleCtx(app?: AppInfo): Ctx {
     npm: {},
     actions: {},
     images: {},
+    crates: {},
   };
   return {
     repo: {
@@ -49,7 +50,7 @@ function allSpecs(): LayerSpec[] {
         deploy,
         addons: Object.keys(stack.addons),
       });
-      collect(appLayers(app), sampleCtx(app));
+      collect([...(stack.needsRust ? [RUST_LAYER] : []), ...appLayers(app)], sampleCtx(app));
     }
   }
   return specs;
@@ -94,3 +95,6 @@ export const allActions = () => scanTemplates(actionsIn);
 
 /** Every Docker image a template names with `__IMAGE[name]__`. */
 export const allImages = () => scanTemplates(imagesIn);
+
+/** Every Rust crate a template names with `__CRATE[name]__`. */
+export const allCrates = () => scanTemplates(cratesIn);

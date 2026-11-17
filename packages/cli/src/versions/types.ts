@@ -20,6 +20,11 @@ export interface Snapshot {
   actions: Record<string, string>;
   /** Docker image → tag, such as `postgres` → `18-alpine`. Templates say `__IMAGE[postgres]__`. */
   images: Record<string, string>;
+  /**
+   * Rust crate → the requirement Cargo.toml gets: the major (`2`), or `0.minor` before 1.0.
+   * Cargo.lock pins the rest. Templates say `__CRATE[tauri]__`.
+   */
+  crates: Record<string, string>;
 }
 
 export interface PackagePolicy {

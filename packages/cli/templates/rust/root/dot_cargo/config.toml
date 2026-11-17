@@ -1,0 +1,4 @@
+# ts-rs writes the TypeScript for the core's types here when `pnpm bindings`
+# (cargo test … export_bindings) runs.
+[env]
+TS_RS_EXPORT_DIR = { value = "__APP_DIR__/src/bindings", relative = true }

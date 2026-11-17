@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
-import { allActions, allImages, allPackages } from "../catalog.ts";
+import { allActions, allCrates, allImages, allPackages } from "../catalog.ts";
 import { BUNDLED_VERSIONS_FILE } from "../paths.ts";
 import { diffSnapshots, refreshSnapshot, type Change } from "../versions/resolve.ts";
 import type { Snapshot } from "../versions/types.ts";
@@ -16,7 +16,7 @@ const HELP = `stacks versions — the known-good version snapshot
                                       applies only the groups whose scaffolds passed)
 
 Refresh options:
-  --group <a,b>     Only these groups (see versions.policy.json; also node, pnpm, actions, misc)
+  --group <a,b>     Only these groups (see versions.policy.json; also node, pnpm, actions, docker, rust, misc)
   --from <file>     Start from this snapshot instead of the bundled one
   --write           Write the result to the bundled versions.json
   --out <file>      Write the result to another file
@@ -80,6 +80,7 @@ export async function versionsCommand(argv: string[]) {
     packages: allPackages(),
     actions: await allActions(),
     images: await allImages(),
+    crates: await allCrates(),
     policy,
     groups,
     onProgress: values.json ? undefined : (message) => console.error(`  ${message}`),
@@ -110,5 +111,6 @@ function applyChange(snapshot: Snapshot, change: Change) {
   else if (change.kind === "pnpm") snapshot.pnpm = change.to;
   else if (change.kind === "action") snapshot.actions[change.name] = change.to;
   else if (change.kind === "image") (snapshot.images ??= {})[change.name] = change.to;
+  else if (change.kind === "crate") (snapshot.crates ??= {})[change.name] = change.to;
   else snapshot.npm[change.name] = change.to;
 }

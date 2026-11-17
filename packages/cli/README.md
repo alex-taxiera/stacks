@@ -36,11 +36,11 @@ AGENTS.md, .agents/   agent instructions, skills and MCP servers (Chakra, one St
 | `spa`   | Vite, TanStack Router, every page prerendered to static HTML             | Cloudflare Workers, GH Pages       |
 | `cli`   | A Node CLI that ships an agent skill through TanStack Intent             | npm, with provenance               |
 | `start` | TanStack Start on Nitro, TanStack Query, better-auth, Drizzle + Postgres | Docker Compose, Cloudflare Workers |
-| `tauri` | _Planned:_ Tauri 2 desktop app with a Rust core crate and updater        | GitHub Releases                    |
+| `tauri` | Tauri 2 desktop app: a Vite, React and Chakra window over a Rust core    | GitHub Releases                    |
 | `astro` | _Planned:_ Astro with React islands                                      | Cloudflare Workers, GH Pages       |
 
 `stacks list` shows what this version has, with its deploy targets and add-ons. Apps with a UI
-take add-ons with `--with`: `e2e` (Playwright tests of whole flows, with a CI job; a `start`
+take add-ons with `--with` (a `tauri` app only `zustand`): `e2e` (Playwright tests of whole flows, with a CI job; a `start`
 app's brings Postgres), `zustand` (a store for state components share) and `sentry` (errors
 and performance from the browser, and from a `start` app's server under Docker).
 
@@ -62,7 +62,8 @@ working in a repo it made.
 ## Keeping versions current
 
 Templates never name a version. Layers list package names, and workflows say
-`__ACTION[actions/checkout]__` and Docker files `__IMAGE[postgres]__`; [`versions.json`](versions.json) fills them in. It's a
+`__ACTION[actions/checkout]__`, Docker files `__IMAGE[postgres]__` and Cargo files
+`__CRATE[tauri]__`; [`versions.json`](versions.json) fills them in. It's a
 _known-good_ snapshot: every version in it has been scaffolded, linted, typechecked, tested and
 built together.
 

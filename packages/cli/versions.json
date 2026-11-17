@@ -32,6 +32,9 @@
     "@tanstack/react-start": "1.169.5",
     "@tanstack/router-cli": "1.168.0",
     "@tanstack/router-plugin": "1.169.0",
+    "@tauri-apps/api": "2.12.4",
+    "@tauri-apps/cli": "2.12.4",
+    "@tauri-apps/plugin-opener": "2.7.3",
     "@types/node": "24.19.2",
     "@types/pg": "8.23.1",
     "@types/react": "19.3.0",
@@ -69,10 +72,20 @@
     "actions/setup-node": "v7",
     "actions/upload-artifact": "v7",
     "actions/upload-pages-artifact": "v5",
-    "pnpm/action-setup": "v6"
+    "pnpm/action-setup": "v6",
+    "Swatinem/rust-cache": "v2",
+    "tauri-apps/tauri-action": "v1"
   },
   "images": {
     "postgres": "18-alpine",
     "traefik": "v3.7"
+  },
+  "crates": {
+    "serde": "1",
+    "serde_json": "1",
+    "tauri": "2",
+    "tauri-build": "2",
+    "tauri-plugin-opener": "2",
+    "ts-rs": "12"
   }
 }

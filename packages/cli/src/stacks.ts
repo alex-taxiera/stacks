@@ -5,11 +5,13 @@ import {
   deployCloudflareStatic,
   deployDocker,
   deployGhPages,
+  releaseGithub,
   releaseNpm,
 } from "./layers/deploy.ts";
 import { repo } from "./layers/repo.ts";
 import { spa } from "./layers/spa.ts";
 import { start } from "./layers/start.ts";
+import { rust, tauri } from "./layers/tauri.ts";
 import { ui } from "./layers/ui.ts";
 import type { AppInfo, Layer, StackId } from "./model.ts";
 
@@ -20,6 +22,8 @@ export interface StackDefinition {
   kind: "app" | "package";
   /** Builds on `packages/ui`, which the first such app creates. */
   needsUi: boolean;
+  /** Builds on the root Cargo workspace and `crates/core`, which the first such app creates. */
+  needsRust?: boolean;
   /** Has a dev server and a Storybook, so gets ports. */
   ports: boolean;
   /** The name `new` suggests for the first app. */
@@ -30,10 +34,15 @@ export interface StackDefinition {
   layers: Layer[];
 }
 
+const ZUSTAND = {
+  summary: "Zustand for state shared between components",
+  layer: addonZustand,
+};
+
 /** The add-ons the apps with a UI offer. */
 const ADDONS: StackDefinition["addons"] = {
   e2e: { summary: "Playwright tests of whole flows in Chromium, with a CI job", layer: addonE2e },
-  zustand: { summary: "Zustand for state shared between components", layer: addonZustand },
+  zustand: ZUSTAND,
   sentry: {
     summary: "Sentry for errors and performance, from the browser and a Docker server",
     layer: addonSentry,
@@ -42,6 +51,7 @@ const ADDONS: StackDefinition["addons"] = {
 
 export const REPO_LAYERS: Layer[] = [repo];
 export const UI_LAYER: Layer = ui;
+export const RUST_LAYER: Layer = rust;
 
 export const STACKS: Record<StackId, StackDefinition> = {
   spa: {
@@ -77,6 +87,24 @@ export const STACKS: Record<StackId, StackDefinition> = {
     defaultDeploy: "docker",
     addons: ADDONS,
     layers: [start],
+  },
+  tauri: {
+    id: "tauri",
+    summary: "Desktop app: Tauri 2 around a Vite, React and Chakra window, its commands in Rust",
+    kind: "app",
+    needsUi: true,
+    needsRust: true,
+    ports: true,
+    defaultAppName: "desktop",
+    deploys: {
+      releases: {
+        summary: "Installers for Windows, macOS and Linux on GitHub Releases",
+        layer: releaseGithub,
+      },
+    },
+    defaultDeploy: "releases",
+    addons: { zustand: ZUSTAND },
+    layers: [tauri],
   },
   cli: {
     id: "cli",

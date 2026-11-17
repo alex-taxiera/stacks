@@ -9,7 +9,14 @@ import { leftoverTokens } from "./compose/tokens.ts";
 import { capture, run } from "./exec.ts";
 import type { AppInfo, Ctx, PostStep, StacksFile, UiInfo } from "./model.ts";
 import { CLI_VERSION } from "./paths.ts";
-import { appLayers, REPO_LAYERS, STACKS, type StackDefinition, UI_LAYER } from "./stacks.ts";
+import {
+  appLayers,
+  REPO_LAYERS,
+  RUST_LAYER,
+  STACKS,
+  type StackDefinition,
+  UI_LAYER,
+} from "./stacks.ts";
 import {
   loadKnownGood,
   readBundledSnapshot,
@@ -18,7 +25,7 @@ import {
 } from "./versions/snapshot.ts";
 import { refreshSnapshot } from "./versions/resolve.ts";
 import { readPolicy } from "./versions/snapshot.ts";
-import { allActions, allImages, allPackages } from "./catalog.ts";
+import { allActions, allCrates, allImages, allPackages } from "./catalog.ts";
 import type { Snapshot } from "./versions/types.ts";
 
 export const STACKS_FILE = ".stacks.json";
@@ -153,6 +160,7 @@ export async function loadVersions(options: VersionOptions, warn: (message: stri
       packages: allPackages(),
       actions: await allActions(),
       images: await allImages(),
+      crates: await allCrates(),
       policy: await readPolicy(),
     });
     return { snapshot, source: "latest (resolved now; untested together)" };
@@ -196,6 +204,9 @@ export async function composeApp(
   if (STACKS[app.stack].needsUi && !base.ui) {
     base.ui = { package: `${file.repo.scope}/ui`, storybookPort: UI_STORYBOOK_PORT };
     results.push(await applyLayers(overlay, base, [UI_LAYER]));
+  }
+  if (STACKS[app.stack].needsRust && !overlay.exists("Cargo.toml")) {
+    results.push(await applyLayers(overlay, { ...base, app }, [RUST_LAYER]));
   }
   results.push(await applyLayers(overlay, { ...base, app }, appLayers(app)));
   for (const changed of overlay.changed) {

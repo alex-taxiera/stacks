@@ -5,7 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
-import { allActions, allImages, allPackages } from "../src/catalog.ts";
+import { allActions, allCrates, allImages, allPackages } from "../src/catalog.ts";
 import { fillSlots } from "../src/compose/apply.ts";
 import { Overlay } from "../src/compose/overlay.ts";
 import type { AppInfo, StacksFile } from "../src/model.ts";
@@ -50,14 +50,16 @@ const readJson = async <T>(file: string) => JSON.parse(await read(file)) as T;
 const web = () => makeApp(STACKS.spa, [], { name: "web", deploy: "cloudflare" });
 const startApp = (deploy: string, addons: string[] = []) =>
   makeApp(STACKS.start, [], { name: "web", deploy, addons });
+const desktop = (name = "desktop") => makeApp(STACKS.tauri, [], { name, deploy: "releases" });
 const tool = () =>
   makeApp(STACKS.cli, [], { name: "cli", packageName: "@me/greeter", deploy: "npm" });
 
 describe("the bundled snapshot", () => {
-  it("has a version for every package, action and image the layers and templates use", async () => {
+  it("has a version for every package, action, image and crate the layers and templates use", async () => {
     expect(allPackages().filter((name) => !versions.npm[name])).toEqual([]);
     expect((await allActions()).filter((repo) => !versions.actions[repo])).toEqual([]);
     expect((await allImages()).filter((image) => !versions.images[image])).toEqual([]);
+    expect((await allCrates()).filter((name) => !versions.crates[name])).toEqual([]);
   });
 });
 
@@ -305,5 +307,48 @@ describe("slots", () => {
     expect(() =>
       fillSlots(overlay, [{ id: "x", slots: { "a.ts": { elsewhere: ["code()"] } } }]),
     ).toThrow('a.ts has no slot "elsewhere"');
+  });
+});
+
+describe("new --stack tauri", () => {
+  it("creates the Cargo workspace and core crate with the first desktop app, once", async () => {
+    const first = await compose(emptyRepo(), desktop());
+    expect(first.overlay.changed).toEqual(
+      expect.arrayContaining([
+        "Cargo.toml",
+        "rustfmt.toml",
+        ".cargo/config.toml",
+        "crates/core/src/lib.rs",
+        "apps/desktop/src-tauri/src/lib.rs",
+        "apps/desktop/src/bindings/Greeting.ts",
+        ".github/workflows/release-desktop.yml",
+      ]),
+    );
+    expect(await read("Cargo.toml")).toContain('serde = { version = "1", features = ["derive"] }');
+    expect(await read(".cargo/config.toml")).toContain('"apps/desktop/src/bindings"');
+    expect(await read("apps/desktop/src-tauri/src/main.rs")).toContain("desktop_lib::run();");
+    const conf = await readJson<{ identifier: string; build: { devUrl: string } }>(
+      "apps/desktop/src-tauri/tauri.conf.json",
+    );
+    expect(conf.identifier).toBe("io.github.me.demo.desktop");
+    expect(conf.build.devUrl).toBe("http://localhost:3000");
+    // tauri-action's own placeholder survives; ours are filled in.
+    const release = await read(".github/workflows/release-desktop.yml");
+    expect(release).toContain("tagName: desktop@v__VERSION__");
+    expect(release).toMatch(/tauri-apps\/tauri-action@v\d+/);
+
+    const pkg = await readJson<{ "lint-staged": Record<string, string> }>("package.json");
+    expect(pkg["lint-staged"]["*.rs"]).toBe("cargo fmt --");
+    const ci = parse(await read(".github/workflows/ci.yml")) as { jobs: Record<string, unknown> };
+    expect(Object.keys(ci.jobs)).toContain("rust");
+
+    const second = await compose(
+      first.file,
+      makeApp(STACKS.tauri, first.file.apps, { name: "viewer", deploy: "releases" }),
+    );
+    expect(second.overlay.changed).not.toContain("Cargo.toml");
+    expect(second.overlay.changed).not.toContain("crates/core/src/lib.rs");
+    expect(second.overlay.changed).toContain("apps/viewer/src-tauri/src/main.rs");
+    expect(await read("apps/viewer/src-tauri/src/main.rs")).toContain("viewer_lib::run();");
   });
 });

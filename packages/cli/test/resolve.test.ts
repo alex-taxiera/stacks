@@ -141,6 +141,7 @@ const snapshot = (npm: Record<string, string>): Snapshot => ({
   npm,
   actions: {},
   images: {},
+  crates: {},
 });
 
 describe("diffSnapshots", () => {
