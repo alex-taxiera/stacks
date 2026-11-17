@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "paths": {
+      "#/*": ["./src/*"]
+    }
+  },
+  "include": [
+    ".astro/types.d.ts",
+    "src",
+    ".storybook",
+    "astro.config.ts",
+    "vite.config.ts",
+    "vitest.shims.d.ts"
+  ],
+  "exclude": ["dist"]
+}

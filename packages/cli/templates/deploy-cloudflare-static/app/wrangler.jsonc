@@ -3,10 +3,9 @@
   "name": "__APP_NAME__",
   "compatibility_date": "__TODAY__",
   "observability": { "enabled": true },
-  // The prerendered pages, served as static assets; any other path gets index.html so the
-  // router can take it.
+  // The built pages, served as static assets.
   "assets": {
     "directory": "dist",
-    "not_found_handling": "single-page-application",
+    // stacks:slot not-found
   },
 }

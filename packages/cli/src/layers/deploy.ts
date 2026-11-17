@@ -3,8 +3,21 @@ import type { Layer } from "../model.ts";
 /** Static assets on Cloudflare Workers, deployed by a path-filtered workflow. */
 export const deployCloudflareStatic: Layer = (ctx) => {
   const name = ctx.app?.name ?? "app";
+  const dir = ctx.app?.dir ?? `apps/${name}`;
+  // A client-routed app takes any path itself; a site of pages has a 404 page for the rest.
+  const notFound =
+    ctx.app?.stack === "astro"
+      ? [
+          "// Astro's 404 page, with a 404 status, for a path no page has.",
+          '"not_found_handling": "404-page",',
+        ]
+      : [
+          "// Any other path gets index.html, so the router can take it.",
+          '"not_found_handling": "single-page-application",',
+        ];
   return {
     id: "deploy-cloudflare-static",
+    slots: { [`${dir}/wrangler.jsonc`]: { "not-found": notFound } },
     packages: {
       app: {
         devDependencies: ["wrangler"],

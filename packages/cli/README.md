@@ -37,10 +37,10 @@ AGENTS.md, .agents/   agent instructions, skills and MCP servers (Chakra, one St
 | `cli`   | A Node CLI that ships an agent skill through TanStack Intent             | npm, with provenance               |
 | `start` | TanStack Start on Nitro, TanStack Query, better-auth, Drizzle + Postgres | Docker Compose, Cloudflare Workers |
 | `tauri` | Tauri 2 desktop app: a Vite, React and Chakra window over a Rust core    | GitHub Releases                    |
-| `astro` | _Planned:_ Astro with React islands                                      | Cloudflare Workers, GH Pages       |
+| `astro` | Astro: Markdown posts, Chakra through React islands, static HTML         | Cloudflare Workers, GH Pages       |
 
 `stacks list` shows what this version has, with its deploy targets and add-ons. Apps with a UI
-take add-ons with `--with` (a `tauri` app only `zustand`): `e2e` (Playwright tests of whole flows, with a CI job; a `start`
+take add-ons with `--with` (a `tauri` app only `zustand`, an `astro` site none yet): `e2e` (Playwright tests of whole flows, with a CI job; a `start`
 app's brings Postgres), `zustand` (a store for state components share) and `sentry` (errors
 and performance from the browser, and from a `start` app's server under Docker).
 

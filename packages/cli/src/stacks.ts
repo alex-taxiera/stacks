@@ -10,6 +10,7 @@ import {
 } from "./layers/deploy.ts";
 import { repo } from "./layers/repo.ts";
 import { spa } from "./layers/spa.ts";
+import { astro } from "./layers/astro.ts";
 import { start } from "./layers/start.ts";
 import { rust, tauri } from "./layers/tauri.ts";
 import { ui } from "./layers/ui.ts";
@@ -87,6 +88,21 @@ export const STACKS: Record<StackId, StackDefinition> = {
     defaultDeploy: "docker",
     addons: ADDONS,
     layers: [start],
+  },
+  astro: {
+    id: "astro",
+    summary: "Site of pages: Astro, Markdown content, and React islands where a page needs them",
+    kind: "app",
+    needsUi: true,
+    ports: true,
+    defaultAppName: "site",
+    deploys: {
+      cloudflare: { summary: "Cloudflare Workers static assets", layer: deployCloudflareStatic },
+      "gh-pages": { summary: "GitHub Pages", layer: deployGhPages },
+    },
+    defaultDeploy: "cloudflare",
+    addons: {},
+    layers: [astro],
   },
   tauri: {
     id: "tauri",

@@ -1,0 +1,65 @@
+---
+import { ChakraStyles } from "__UI_PKG__/island";
+
+import { Footer } from "#/components/Footer";
+import { Header } from "#/components/Header";
+import { APP_NAME, DESCRIPTION } from "#/site-config";
+
+interface Props {
+  /** The page's own title; the site's name follows it. The home page leaves it out. */
+  title?: string;
+  description?: string;
+}
+
+const { title, description = DESCRIPTION } = Astro.props;
+const fullTitle = title ? `${title} · ${APP_NAME}` : APP_NAME;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={APP_NAME} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary" />
+    <!-- The saved color mode, before the first paint, so a dark page doesn't flash light. -->
+    <script is:inline>
+      try {
+        const saved = localStorage.getItem("theme");
+        const dark =
+          saved === "dark" ||
+          (saved !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.add(dark ? "dark" : "light");
+        document.documentElement.style.colorScheme = dark ? "dark" : "light";
+      } catch {}
+    </script>
+    <ChakraStyles />
+  </head>
+  <body>
+    <Header currentPath={Astro.url.pathname} client:load />
+    <main>
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>
+
+<style is:global>
+  body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+  }
+  main {
+    flex: 1;
+  }
+</style>

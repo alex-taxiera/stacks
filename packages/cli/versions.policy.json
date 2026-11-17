@@ -44,6 +44,7 @@
     "sentry": ["@sentry/*"],
     "cloudflare": ["wrangler"],
     "tauri": ["@tauri-apps/*"],
+    "astro": ["astro", "@astrojs/*"],
     "server": ["better-auth", "drizzle-orm", "drizzle-kit", "pg", "@types/pg", "zod", "dotenv-cli"]
   },
   "images": {

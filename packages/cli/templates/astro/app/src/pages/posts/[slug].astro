@@ -1,0 +1,25 @@
+---
+import { getCollection, render } from "astro:content";
+
+import { PageHeader } from "#/components/PageHeader";
+import { Prose } from "#/components/Prose";
+import Base from "#/layouts/Base.astro";
+import { formatDate, sortPosts } from "#/posts";
+
+export async function getStaticPaths() {
+  return sortPosts(await getCollection("posts")).map((post) => ({
+    params: { slug: post.id },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+---
+
+<Base title={post.data.title} description={post.data.description}>
+  <PageHeader title={post.data.title} lead={formatDate(post.data.date)} />
+  <Prose>
+    <Content />
+  </Prose>
+</Base>

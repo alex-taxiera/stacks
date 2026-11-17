@@ -352,3 +352,23 @@ describe("new --stack tauri", () => {
     expect(await read("apps/viewer/src-tauri/src/main.rs")).toContain("viewer_lib::run();");
   });
 });
+
+describe("new --stack astro", () => {
+  it("puts Chakra's global CSS in the layout once, and serves the 404 page on Workers", async () => {
+    await compose(emptyRepo(), makeApp(STACKS.astro, [], { name: "site", deploy: "cloudflare" }));
+    expect(await read("packages/ui/src/components/ui/island.tsx")).toContain("IslandProvider");
+    const layout = await read("apps/site/src/layouts/Base.astro");
+    expect(layout).toContain('import { ChakraStyles } from "@demo/ui/island";');
+    expect(layout).toContain("<Header currentPath={Astro.url.pathname} client:load />");
+    const wrangler = await read("apps/site/wrangler.jsonc");
+    expect(wrangler).toContain('"not_found_handling": "404-page",');
+    expect(wrangler).not.toContain("stacks:slot");
+  });
+
+  it("leaves a spa's Worker answering every path with index.html", async () => {
+    await compose(emptyRepo(), web());
+    expect(await read("apps/web/wrangler.jsonc")).toContain(
+      '"not_found_handling": "single-page-application",',
+    );
+  });
+});

@@ -49,6 +49,7 @@ pnpm dlx @alex-taxiera/stacks add cli tool --package-name @me/tool
 | ------- | ----------------- | --------------------------------------------------------------------------------- | ------------------------ |
 | `spa`   | `apps/<name>`     | Vite, TanStack Router, every page prerendered                                     | `cloudflare`, `gh-pages` |
 | `start` | `apps/<name>`     | Rendered on the server: TanStack Start, better-auth, Drizzle on Postgres          | `docker`, `cloudflare`   |
+| `astro` | `apps/<name>`     | A static site: Astro pages, Markdown posts, Chakra in React islands               | `cloudflare`, `gh-pages` |
 | `tauri` | `apps/<name>`     | A Tauri 2 desktop app; the first also makes the Cargo workspace and `crates/core` | `releases`               |
 | `cli`   | `packages/<name>` | A Node CLI published to npm, shipping a skill like this one                       | `npm`                    |
 

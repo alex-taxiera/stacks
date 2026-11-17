@@ -83,6 +83,11 @@ const CASES: Record<string, Case> = {
         throw new Error("The template's bindings differ from what ts-rs writes for crates/core");
     },
   },
+  // A site of pages with islands, on a Worker that answers unknown paths with its 404 page.
+  "astro-cloudflare": {
+    commands: [["new", "--stack", "astro", "--deploy", "cloudflare"]],
+    after: [["pnpm", "--filter", "site", "exec", "wrangler", "deploy", "--dry-run"]],
+  },
   // A start app added beside a spa: it shares packages/ui and takes the next ports. Its image
   // builds from the repo root, migrate stage included.
   "spa-then-start": {

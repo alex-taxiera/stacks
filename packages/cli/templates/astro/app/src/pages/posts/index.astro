@@ -1,0 +1,20 @@
+---
+import { getCollection } from "astro:content";
+
+import { PageHeader } from "#/components/PageHeader";
+import { PostList } from "#/components/PostList";
+import Base from "#/layouts/Base.astro";
+import { formatDate, sortPosts } from "#/posts";
+
+const posts = sortPosts(await getCollection("posts")).map((post) => ({
+  href: `/posts/${post.id}/`,
+  title: post.data.title,
+  description: post.data.description,
+  date: formatDate(post.data.date),
+}));
+---
+
+<Base title="Posts" description="Every post, newest first.">
+  <PageHeader title="Posts" lead="Every post, newest first." />
+  <PostList posts={posts} />
+</Base>
