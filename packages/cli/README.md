@@ -41,7 +41,8 @@ AGENTS.md, .agents/   agent instructions, skills and MCP servers (Chakra, one St
 
 `stacks list` shows what this version has, with its deploy targets and add-ons. Apps with a UI
 take add-ons with `--with`: `e2e` (Playwright tests of whole flows, with a CI job; a `start`
-app's brings Postgres) and `zustand` (a store for state components share). Sentry is next.
+app's brings Postgres), `zustand` (a store for state components share) and `sentry` (errors
+and performance from the browser, and from a `start` app's server under Docker).
 
 ## Skills that ship with a CLI
 

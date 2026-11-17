@@ -1,6 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
+// stacks:slot imports
 
 import { routeTree } from "./routeTree.gen";
 
@@ -17,6 +18,7 @@ export function getRouter() {
   });
   // Queries a server render fetched go to the browser with the HTML.
   setupRouterSsrQueryIntegration({ router, queryClient });
+  // stacks:slot router
   return router;
 }
 

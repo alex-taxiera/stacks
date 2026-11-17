@@ -115,7 +115,8 @@ stacks is built the way it builds others: this repo is what `stacks new --stack 
 - **Templates stay valid source**: tokens in strings or identifier positions, never a templating
   syntax. A token the context doesn't define fails the scaffold.
 - **Merge, don't overwrite.** Root files an app touches go through the layer's `json`, `yaml`,
-  `lines` and `agents`, so `add` can apply them to a repo that has them already.
+  `lines` and `agents`, so `add` can apply them to a repo that has them already. An add-on that
+  needs code inside a stack's file fills a `// stacks:slot <name>` marker (`slots`), never a copy.
 - **Copy conventions from the newest repos** (MTG-Art-Seeker and pokodex for tooling and agent setup,
   spellvendor for better-auth and Drizzle), stripped of anything domain-specific.
 - **A template change that older CLIs can't produce** bumps `minCliVersion` in `versions.json`.

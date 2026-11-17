@@ -111,3 +111,99 @@ export const addonZustand: Layer = (ctx) => {
     ],
   };
 };
+
+/** Sentry's browser setup: errors and page-load timings, once the build has a DSN. */
+const sentryBrowserInit = (indent = "") =>
+  [
+    "// Errors and page loads go to Sentry when the build has a DSN (VITE_SENTRY_DSN, in",
+    "// .env.production; empty leaves it off).",
+    "if (!router.isServer && import.meta.env.VITE_SENTRY_DSN && !Sentry.getClient()) {",
+    "  Sentry.init({",
+    "    dsn: import.meta.env.VITE_SENTRY_DSN,",
+    "    integrations: [Sentry.tanstackRouterBrowserTracingIntegration(router)],",
+    "    tracesSampleRate: 0.1,",
+    "  });",
+    "}",
+  ].map((line) => (line ? indent + line : line));
+
+/**
+ * Sentry: the browser everywhere, and a start app's server under Docker, loaded before the app
+ * with `node --import`. A Worker's server needs `@sentry/cloudflare`, which this doesn't set up.
+ */
+export const addonSentry: Layer = (ctx) => {
+  const app = requireApp(ctx.app);
+  const isStart = app.stack === "start";
+  const onDocker = isStart && app.deploy === "docker";
+  const sdk = isStart ? "@sentry/tanstackstart-react" : "@sentry/react";
+  const entry = isStart ? `${app.dir}/src/router.tsx` : `${app.dir}/src/main.tsx`;
+  const slots: Record<string, Record<string, string[]>> = {
+    [entry]: {
+      imports: [`import * as Sentry from "${sdk}";`],
+      router: sentryBrowserInit(),
+    },
+  };
+  if (onDocker) {
+    slots[`${app.dir}/Dockerfile`] = {
+      stages: [
+        "# The Sentry SDK the server loads before the app (instrument.server.mjs), installed as a",
+        "# package: the copy Nitro bundles into .output can't be loaded with `--import`.",
+        "FROM base AS sentry",
+        "WORKDIR /sentry",
+        "RUN --mount=type=bind,from=deps,source=/repo,target=/repo \\",
+        "  --mount=type=cache,target=/root/.npm \\",
+        `  version=$(node -p "require('/repo/${app.dir}/node_modules/${sdk}/package.json').version") \\`,
+        `  && npm install --no-save --ignore-scripts "${sdk}@$\{version}"`,
+        "",
+      ],
+      runtime: [
+        "COPY --from=sentry --chown=node:node /sentry/node_modules ./node_modules",
+        `COPY --chown=node:node ${app.dir}/instrument.server.mjs ./`,
+        'ENV NODE_OPTIONS="--import ./instrument.server.mjs"',
+      ],
+    };
+  }
+  return {
+    id: "addon-sentry",
+    templates: onDocker ? "addon-sentry-server" : "addon-sentry",
+    packages: {
+      app: {
+        dependencies: [sdk],
+        ...(onDocker
+          ? { scripts: { start: "node --import ./instrument.server.mjs .output/server/index.mjs" } }
+          : {}),
+      },
+    },
+    slots,
+    ...(onDocker
+      ? {
+          yaml: {
+            [`${app.dir}/compose.yaml`]: {
+              services: { app: { environment: { SENTRY_DSN: "${SENTRY_DSN:-}" } } },
+            },
+          },
+          lines: {
+            [`${app.dir}/.env.example`]: [
+              "",
+              "# Sentry for the server; the browser's DSN is in .env.production. Empty leaves it off.",
+              "SENTRY_DSN=",
+            ],
+          },
+        }
+      : {}),
+    agents: [
+      {
+        region: "rules",
+        id: `sentry:${app.name}`,
+        body: [
+          `- **\`apps/${app.name}\` reports to Sentry** once \`.env.production\` has \`VITE_SENTRY_DSN\` (public:`,
+          "  it's in the browser bundle)." +
+            (onDocker
+              ? " The server reads `SENTRY_DSN` from its environment and loads Sentry first, from\n  `instrument.server.mjs`."
+              : isStart
+                ? " Only the browser reports: a Worker's server needs `@sentry/cloudflare`."
+                : ""),
+        ].join("\n"),
+      },
+    ],
+  };
+};

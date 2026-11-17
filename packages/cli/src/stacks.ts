@@ -1,4 +1,4 @@
-import { addonE2e, addonZustand } from "./layers/addons.ts";
+import { addonE2e, addonSentry, addonZustand } from "./layers/addons.ts";
 import { cli } from "./layers/cli.ts";
 import {
   deployCloudflareSsr,
@@ -34,6 +34,10 @@ export interface StackDefinition {
 const ADDONS: StackDefinition["addons"] = {
   e2e: { summary: "Playwright tests of whole flows in Chromium, with a CI job", layer: addonE2e },
   zustand: { summary: "Zustand for state shared between components", layer: addonZustand },
+  sentry: {
+    summary: "Sentry for errors and performance, from the browser and a Docker server",
+    layer: addonSentry,
+  },
 };
 
 export const REPO_LAYERS: Layer[] = [repo];

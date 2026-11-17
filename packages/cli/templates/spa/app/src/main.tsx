@@ -1,10 +1,12 @@
 import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+// stacks:slot imports
 
 import { createAppRouter } from "./router";
 
 const router = createAppRouter();
+// stacks:slot router
 
 const root = document.getElementById("root");
 if (!root) throw new Error("index.html has no #root element");

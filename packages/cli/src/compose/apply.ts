@@ -283,5 +283,44 @@ export async function applyLayers(
     }
   }
 
+  fillSlots(overlay, specs);
   return { post, warnings };
+}
+
+const SLOT = /^([ \t]*)(?:\/\/|#) stacks:slot ([\w-]+)[ \t]*$/;
+
+/**
+ * Replaces each slot in the files this run wrote with the lines layers gave it, or removes it.
+ * A layer that fills a slot no file has fails, so a renamed slot can't drop code silently.
+ */
+export function fillSlots(overlay: Overlay, specs: LayerSpec[]) {
+  const fills = new Map<string, Map<string, string[]>>();
+  for (const spec of specs) {
+    for (const [file, slots] of Object.entries(spec.slots ?? {})) {
+      const byName = fills.get(file) ?? new Map<string, string[]>();
+      for (const [name, lines] of Object.entries(slots))
+        byName.set(name, [...(byName.get(name) ?? []), ...lines]);
+      fills.set(file, byName);
+    }
+  }
+  const used = new Set<string>();
+  for (const file of overlay.changed) {
+    if (BINARY.has(path.extname(file).toLowerCase())) continue;
+    const text = overlay.read(file);
+    if (!text?.includes("stacks:slot")) continue;
+    const filled = text.split("\n").flatMap((line) => {
+      const match = SLOT.exec(line.replace(/\r$/, ""));
+      if (!match) return [line];
+      const [, indent = "", name = ""] = match;
+      used.add(`${file}#${name}`);
+      // The marker's line goes; the lines filling it, if any, take its place and indentation.
+      return (fills.get(file)?.get(name) ?? []).map((fill) => (fill ? indent + fill : fill));
+    });
+    overlay.write(file, filled.join("\n"));
+  }
+  for (const [file, byName] of fills) {
+    for (const name of byName.keys()) {
+      if (!used.has(`${file}#${name}`)) throw new Error(`${file} has no slot "${name}" to fill`);
+    }
+  }
 }

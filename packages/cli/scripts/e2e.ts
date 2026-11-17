@@ -42,7 +42,7 @@ const CASES: Record<string, Case> = {
   },
   // With every add-on; its Playwright tests run against the built site.
   "spa-cloudflare": {
-    commands: [["new", "--stack", "spa", "--deploy", "cloudflare", "--with", "e2e,zustand"]],
+    commands: [["new", "--stack", "spa", "--deploy", "cloudflare", "--with", "e2e,zustand,sentry"]],
     after: [["pnpm", "--filter", "web", "e2e"]],
   },
   "spa-multi": {
@@ -62,7 +62,7 @@ const CASES: Record<string, Case> = {
   "spa-then-start": {
     commands: [
       ["new", "--stack", "spa", "--app", "site", "--deploy", "cloudflare"],
-      ["add", "start", "web", "--deploy", "docker"],
+      ["add", "start", "web", "--deploy", "docker", "--with", "sentry"],
     ],
     after: [
       ["docker", "build", "--file", "apps/web/Dockerfile", "--target", "migrate", "."],

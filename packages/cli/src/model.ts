@@ -117,6 +117,12 @@ export interface LayerSpec {
   yaml?: Record<string, unknown>;
   /** Lines appended, once, to text files at the root (`.gitignore`). */
   lines?: Record<string, string[]>;
+  /**
+   * Lines for the slots in files earlier layers wrote this run: file (from the root) → slot →
+   * lines. A slot is a comment alone on its line, `// stacks:slot <name>` (or `#`), which is
+   * replaced by the lines at its indentation, or removed when no layer fills it.
+   */
+  slots?: Record<string, Record<string, string[]>>;
   agents?: AgentsBlock[];
   /** Merged into `.agents/mcp.json`. */
   mcp?: Record<string, McpServer>;

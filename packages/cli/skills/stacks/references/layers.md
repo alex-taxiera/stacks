@@ -6,6 +6,9 @@ any of these:
 - `packages`: per target (`root`, `ui` or `app`), the dependency names, scripts and other
   `package.json` fields
 - `json`, `yaml` and `lines` patches for root files, deep-merged (arrays unioned)
+- `slots`: lines for `// stacks:slot <name>` markers in files earlier layers wrote this run (an
+  add-on's code in a stack's `router.tsx` or `Dockerfile`); an unfilled marker is removed, and
+  filling a slot no file has fails
 - `agents` blocks for AGENTS.md's regions (`apps`, `rules`, `ui`, `mcp`)
 - `mcp` servers, merged into `.agents/mcp.json`
 - `post` steps run after the files are written (install, build, typegen…)

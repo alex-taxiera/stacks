@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
 import { allActions, allImages, allPackages } from "../src/catalog.ts";
+import { fillSlots } from "../src/compose/apply.ts";
 import { Overlay } from "../src/compose/overlay.ts";
 import type { AppInfo, StacksFile } from "../src/model.ts";
 import { composeApp, makeApp, readStacksFile } from "../src/scaffold.ts";
@@ -271,5 +272,38 @@ describe("new --stack start", () => {
     expect(ci.jobs["e2e-web"]?.services?.postgres.image).toBe(
       `postgres:${versions.images.postgres}`,
     );
+  });
+});
+
+describe("slots", () => {
+  it("are filled by add-ons, and leave no marker behind when they aren't", async () => {
+    const { overlay } = await compose(emptyRepo(), startApp("docker", ["sentry"]));
+    const router = await read("apps/web/src/router.tsx");
+    expect(router).toContain('import * as Sentry from "@sentry/tanstackstart-react";');
+    expect(router).toContain("tanstackRouterBrowserTracingIntegration(router)");
+    const dockerfile = await read("apps/web/Dockerfile");
+    expect(dockerfile).toContain("FROM base AS sentry");
+    expect(dockerfile).toContain('ENV NODE_OPTIONS="--import ./instrument.server.mjs"');
+    const withMarkers: string[] = [];
+    for (const file of overlay.changed) {
+      if (/\.(png|ico|woff2?)$/.test(file)) continue;
+      if ((await read(file)).includes("stacks:slot")) withMarkers.push(file);
+    }
+    expect(withMarkers).toEqual([]);
+  });
+
+  it("vanish from an app without add-ons", async () => {
+    await compose(emptyRepo(), web());
+    const main = await read("apps/web/src/main.tsx");
+    expect(main).not.toContain("stacks:slot");
+    expect(main).not.toContain("Sentry");
+  });
+
+  it("refuse a fill for a slot no file has", () => {
+    const overlay = new Overlay(root);
+    overlay.write("a.ts", "// stacks:slot here\n");
+    expect(() =>
+      fillSlots(overlay, [{ id: "x", slots: { "a.ts": { elsewhere: ["code()"] } } }]),
+    ).toThrow('a.ts has no slot "elsewhere"');
   });
 });

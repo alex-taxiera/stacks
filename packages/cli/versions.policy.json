@@ -41,6 +41,7 @@
     "oxc": ["oxlint", "oxfmt"],
     "typescript": ["typescript", "@types/node"],
     "tooling": ["husky", "lint-staged"],
+    "sentry": ["@sentry/*"],
     "cloudflare": ["wrangler"],
     "server": ["better-auth", "drizzle-orm", "drizzle-kit", "pg", "@types/pg", "zod", "dotenv-cli"]
   },

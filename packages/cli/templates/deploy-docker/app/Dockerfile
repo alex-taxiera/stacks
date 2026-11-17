@@ -43,6 +43,7 @@ FROM deps AS build
 # installed would reinstall it; it is as installed as the build needs.
 RUN pnpm --config.verify-deps-before-run=false --filter __APP_NAME__ build
 
+# stacks:slot stages
 FROM node:__NODE_MAJOR__-slim AS runtime
 # SERVER_SHUTDOWN_TIMEOUT (seconds) is how long the server lets requests finish after SIGTERM;
 # compose's stop_grace_period must be longer.
@@ -52,6 +53,7 @@ ENV NODE_ENV=production \
   SERVER_SHUTDOWN_TIMEOUT=30
 WORKDIR /app
 COPY --from=build --chown=node:node /repo/apps/__APP_NAME__/.output ./.output
+# stacks:slot runtime
 USER node
 EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]
