@@ -68,7 +68,12 @@ export function upsertBlock(markdown: string, region: string, id: string, body: 
 /** `lines` appended to `text`, skipping any it already has. */
 export function appendLines(text: string, lines: string[]): string {
   const have = new Set(text.split(/\r?\n/).map((line) => line.trim()));
-  const missing = lines.filter((line) => !have.has(line.trim()));
-  if (missing.length === 0) return text;
+  // A blank line separates a group of lines; it's kept when a missing line follows it.
+  const missing = lines.filter((line, index) =>
+    line.trim() === ""
+      ? lines.slice(index + 1).some((next) => next.trim() !== "" && !have.has(next.trim()))
+      : !have.has(line.trim()),
+  );
+  if (!missing.some((line) => line.trim() !== "")) return text;
   return `${text.trimEnd()}\n${missing.join("\n")}\n`;
 }

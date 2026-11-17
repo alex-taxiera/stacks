@@ -61,4 +61,11 @@ describe("appendLines", () => {
       "node_modules/\ndist/\n.wrangler/\n",
     );
   });
+
+  it("keeps a blank line that starts a group, unless the whole group is there", () => {
+    const group = ["", "# Sentry", "SENTRY_DSN="];
+    const once = appendLines("A=1\n\nB=2\n", group);
+    expect(once).toBe("A=1\n\nB=2\n\n# Sentry\nSENTRY_DSN=\n");
+    expect(appendLines(once, group)).toBe(once);
+  });
 });
