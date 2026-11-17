@@ -18,7 +18,7 @@ import {
 } from "./versions/snapshot.ts";
 import { refreshSnapshot } from "./versions/resolve.ts";
 import { readPolicy } from "./versions/snapshot.ts";
-import { allActions, allPackages } from "./catalog.ts";
+import { allActions, allImages, allPackages } from "./catalog.ts";
 import type { Snapshot } from "./versions/types.ts";
 
 export const STACKS_FILE = ".stacks.json";
@@ -152,6 +152,7 @@ export async function loadVersions(options: VersionOptions, warn: (message: stri
     const snapshot: Snapshot = await refreshSnapshot(bundled, {
       packages: allPackages(),
       actions: await allActions(),
+      images: await allImages(),
       policy: await readPolicy(),
     });
     return { snapshot, source: "latest (resolved now; untested together)" };

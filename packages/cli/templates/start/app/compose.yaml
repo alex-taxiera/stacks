@@ -1,0 +1,27 @@
+# Postgres for the dev server: `docker compose up -d postgres`, on localhost:__DB_PORT__.
+# Reads `.env` in this folder for POSTGRES_PASSWORD, if you set one.
+
+name: __REPO_NAME__-__APP_NAME__
+
+services:
+  postgres:
+    image: __IMAGE[postgres]__
+    ports:
+      # Localhost only: the dev server reaches it, nothing else does.
+      - "127.0.0.1:${POSTGRES_PORT:-__DB_PORT__}:5432"
+    environment:
+      POSTGRES_DB: __APP_NAME__
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d __APP_NAME__"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  postgres-data:

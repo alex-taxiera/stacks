@@ -254,7 +254,8 @@ export async function applyLayers(
     for (const [file, patch] of Object.entries(spec.yaml ?? {})) {
       const doc = parseDocument(overlay.read(file) ?? "");
       mergeIntoDocument(doc, [], patch);
-      overlay.write(file, doc.toString({ lineWidth: 0 }));
+      // Patches name actions and images the way templates do.
+      overlay.write(file, replaceTokens(doc.toString({ lineWidth: 0 }), ctx, file));
     }
   }
 

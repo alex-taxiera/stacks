@@ -1,0 +1,39 @@
+# The production layer over compose.yaml, which scripts/deploy.sh uses:
+#   COMPOSE_FILE=compose.yaml:compose.prod.yaml[:compose.override.yaml]
+#
+# Nothing is published on the host but Traefik, on port 80. Put a TLS-terminating proxy or a
+# tunnel (cloudflared) in front of it: a per-machine compose.override.yaml is the place for that.
+# Traefik only routes to healthy `app` containers, so `docker rollout app` can run the old and new
+# releases side by side, then drain the old one.
+
+services:
+  proxy:
+    image: __IMAGE[traefik]__
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      # Only this project's containers, so several apps can share a Docker host.
+      - --providers.docker.constraints=Label(`com.docker.compose.project`,`${COMPOSE_PROJECT_NAME}`)
+      - --entrypoints.web.address=:80
+    ports:
+      - "${PROXY_PORT:-80}:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  postgres:
+    # The app and migrations reach it over the compose network; nothing else needs to.
+    ports: !reset []
+
+  app:
+    # Two replicas run during a rollout, so they can't share a host port.
+    ports: !reset []
+    # Required here; compose.yaml defaults them for local runs.
+    environment:
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?set the app's public URL}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set a long random secret}
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.__APP_NAME__.rule: Host(`${APP_HOST:?set the app's host name}`)
+      traefik.http.routers.__APP_NAME__.entrypoints: web
+      traefik.http.services.__APP_NAME__.loadbalancer.server.port: "3000"

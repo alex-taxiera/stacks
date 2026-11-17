@@ -35,10 +35,20 @@
       "playwright",
       "vite-prerender-plugin"
     ],
-    "tanstack": ["@tanstack/*"],
+    "tanstack": ["@tanstack/*", "nitro"],
     "oxc": ["oxlint", "oxfmt"],
     "typescript": ["typescript", "@types/node"],
     "tooling": ["husky", "lint-staged"],
-    "cloudflare": ["wrangler"]
+    "cloudflare": ["wrangler"],
+    "server": ["better-auth", "drizzle-orm", "drizzle-kit", "pg", "@types/pg", "zod", "dotenv-cli"]
+  },
+  "images": {
+    "postgres": {
+      "tag": "^(\\d+)-alpine$",
+      "reason": "The newest major; Dependabot moves the patch."
+    },
+    "traefik": {
+      "tag": "^v(\\d+)\\.(\\d+)$"
+    }
   }
 }

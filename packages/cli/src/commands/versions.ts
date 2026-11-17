@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
-import { allActions, allPackages } from "../catalog.ts";
+import { allActions, allImages, allPackages } from "../catalog.ts";
 import { BUNDLED_VERSIONS_FILE } from "../paths.ts";
 import { diffSnapshots, refreshSnapshot, type Change } from "../versions/resolve.ts";
 import type { Snapshot } from "../versions/types.ts";
@@ -79,6 +79,7 @@ export async function versionsCommand(argv: string[]) {
   const next = await refreshSnapshot(current, {
     packages: allPackages(),
     actions: await allActions(),
+    images: await allImages(),
     policy,
     groups,
     onProgress: values.json ? undefined : (message) => console.error(`  ${message}`),
@@ -108,5 +109,6 @@ function applyChange(snapshot: Snapshot, change: Change) {
   if (change.kind === "node") snapshot.node = change.to;
   else if (change.kind === "pnpm") snapshot.pnpm = change.to;
   else if (change.kind === "action") snapshot.actions[change.name] = change.to;
+  else if (change.kind === "image") (snapshot.images ??= {})[change.name] = change.to;
   else snapshot.npm[change.name] = change.to;
 }

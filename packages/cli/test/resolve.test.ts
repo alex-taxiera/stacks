@@ -4,6 +4,7 @@ import {
   diffSnapshots,
   groupOf,
   resolveAction,
+  resolveImage,
   resolveNpm,
   type Fetch,
 } from "../src/versions/resolve.ts";
@@ -98,10 +99,29 @@ describe("resolveAction", () => {
   });
 });
 
+describe("resolveImage", () => {
+  it("takes the highest tag the pattern matches, by number, across pages", async () => {
+    const tags = "https://hub.docker.com/v2/repositories/library/traefik/tags";
+    const tag = await resolveImage(
+      "traefik",
+      String.raw`^v(\d+)\.(\d+)$`,
+      fakeFetch({
+        [`${tags}?page_size=100&ordering=last_updated`]: {
+          next: `${tags}?page=2`,
+          results: [{ name: "v3.9" }, { name: "latest" }, { name: "v3.10-rc1" }],
+        },
+        [`${tags}?page=2`]: { next: null, results: [{ name: "v3.10" }, { name: "v2.11" }] },
+      }),
+    );
+    expect(tag).toBe("v3.10");
+  });
+});
+
 const policy: Policy = {
   minReleaseAgeDays: 3,
   packages: {},
   groups: { storybook: ["storybook", "@storybook/*"] },
+  images: {},
 };
 
 describe("groupOf", () => {
@@ -120,6 +140,7 @@ const snapshot = (npm: Record<string, string>): Snapshot => ({
   pnpm: "12.0.0",
   npm,
   actions: {},
+  images: {},
 });
 
 describe("diffSnapshots", () => {

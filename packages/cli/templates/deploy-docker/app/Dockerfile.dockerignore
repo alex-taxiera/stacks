@@ -1,0 +1,17 @@
+# The build context is the repo root; Docker reads this file because it sits beside the Dockerfile.
+.git
+.github
+.husky
+.claude
+CLAUDE.md
+**/node_modules
+**/.output
+**/.nitro
+**/.tanstack
+**/dist
+**/storybook-static
+**/*.log
+**/.env
+**/.env.*
+!**/.env.example
+**/compose*.yaml

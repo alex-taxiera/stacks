@@ -98,6 +98,46 @@ export async function resolveAction(
   return `v${Math.max(...majors)}`;
 }
 
+interface DockerHubTags {
+  next: string | null;
+  results: { name: string }[];
+}
+
+/** Compares two tags by the numbers `pattern` captures, left to right. */
+function compareTags(pattern: RegExp, a: string, b: string): number {
+  const numbers = (tag: string) => (pattern.exec(tag) ?? []).slice(1).map(Number);
+  const [left, right] = [numbers(a), numbers(b)];
+  for (let index = 0; index < Math.max(left.length, right.length); index++) {
+    const diff = (left[index] ?? 0) - (right[index] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+/**
+ * The newest tag of a Docker Hub image matching `pattern` (`^(\\d+)-alpine$`). Official images
+ * are rebuilt under the same tags for every patch, so there's no release age to wait for.
+ */
+export async function resolveImage(
+  image: string,
+  pattern: string,
+  fetchFn: Fetch = fetch,
+): Promise<string> {
+  const regex = new RegExp(pattern);
+  const repo = image.includes("/") ? image : `library/${image}`;
+  const tags: string[] = [];
+  let url: string | null =
+    `https://hub.docker.com/v2/repositories/${repo}/tags?page_size=100&ordering=last_updated`;
+  // The newest tags come first; three pages reach well past the current release.
+  for (let page = 0; url && page < 3; page++) {
+    const body: DockerHubTags = await getJson<DockerHubTags>(fetchFn, url);
+    tags.push(...body.results.map((result) => result.name).filter((name) => regex.test(name)));
+    url = body.next;
+  }
+  if (tags.length === 0) throw new Error(`${image}: no tag matches ${pattern}`);
+  return tags.toSorted((a, b) => compareTags(regex, b, a))[0] as string;
+}
+
 interface NodeRelease {
   version: string;
   lts: string | false;
@@ -142,6 +182,8 @@ export interface RefreshOptions {
   /** Every npm package and GitHub Action the layers and templates use. */
   packages: string[];
   actions: string[];
+  /** Every Docker image the templates use. */
+  images: string[];
   policy: Policy;
   /** Only refresh these groups (all when empty). `node`, `pnpm` and `actions` are groups too. */
   groups?: string[];
@@ -200,6 +242,18 @@ export async function refreshSnapshot(
     });
   }
 
+  next.images ??= {};
+  if (wants("docker")) {
+    const images = options.images.filter((image) => policy.images[image]);
+    const tags = await mapLimit(images, 4, (image) =>
+      resolveImage(image, policy.images[image]?.tag ?? "", fetchFn),
+    );
+    images.forEach((image, index) => {
+      next.images[image] = tags[index] as string;
+      onProgress(`${image} ${tags[index]}`);
+    });
+  }
+
   // Drop what nothing uses any more, and keep the files' order stable for diffs.
   const used = new Set(options.packages);
   next.npm = Object.fromEntries(
@@ -213,12 +267,18 @@ export async function refreshSnapshot(
       .filter(([repo]) => usedActions.has(repo))
       .toSorted(([a], [b]) => a.localeCompare(b)),
   );
+  const usedImages = new Set(options.images);
+  next.images = Object.fromEntries(
+    Object.entries(next.images)
+      .filter(([image]) => usedImages.has(image))
+      .toSorted(([a], [b]) => a.localeCompare(b)),
+  );
   next.updated = now.toISOString().slice(0, 10);
   return next;
 }
 
 export interface Change {
-  kind: "npm" | "action" | "node" | "pnpm";
+  kind: "npm" | "action" | "image" | "node" | "pnpm";
   name: string;
   from?: string;
   to: string;
@@ -282,6 +342,18 @@ export function diffSnapshots(from: Snapshot, to: Snapshot, policy: Policy): Cha
       to: tag,
       group: "actions",
       major: previous !== undefined,
+    });
+  }
+  for (const [image, tag] of Object.entries(to.images ?? {})) {
+    const previous = from.images?.[image];
+    if (previous === tag) continue;
+    changes.push({
+      kind: "image",
+      name: image,
+      from: previous,
+      to: tag,
+      group: "docker",
+      major: isMajor(previous, tag),
     });
   }
   return changes;

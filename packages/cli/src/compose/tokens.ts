@@ -1,3 +1,4 @@
+import { dbPort } from "../layers/start.ts";
 import type { Ctx } from "../model.ts";
 
 /**
@@ -27,7 +28,12 @@ export function tokensFor(ctx: Ctx): Record<string, string> {
     tokens.APP_DIR = ctx.app.dir;
     tokens.PACKAGE_NAME = ctx.app.packageName;
     tokens.BIN_NAME = ctx.app.packageName.split("/").at(-1) ?? ctx.app.packageName;
-    if (ctx.app.devPort !== undefined) tokens.DEV_PORT = String(ctx.app.devPort);
+    if (ctx.app.devPort !== undefined) {
+      tokens.DEV_PORT = String(ctx.app.devPort);
+      // The app run in Docker locally, beside the dev server, and its Postgres.
+      tokens.DOCKER_PORT = String(ctx.app.devPort + 1);
+      tokens.DB_PORT = String(dbPort(ctx.app.devPort));
+    }
     if (ctx.app.storybookPort !== undefined) tokens.STORYBOOK_PORT = String(ctx.app.storybookPort);
   }
   return tokens;
@@ -35,6 +41,7 @@ export function tokensFor(ctx: Ctx): Record<string, string> {
 
 const TOKEN = /__([A-Z][A-Z0-9_]*[A-Z0-9])__/g;
 const ACTION = /__ACTION\[([\w.-]+\/[\w.-]+)\]__/g;
+const IMAGE = /__IMAGE\[([\w./-]+)\]__/g;
 
 export function replaceTokens(text: string, ctx: Ctx, file = "template"): string {
   const tokens = tokensFor(ctx);
@@ -43,6 +50,11 @@ export function replaceTokens(text: string, ctx: Ctx, file = "template"): string
       const tag = ctx.versions.actions[repo];
       if (!tag) throw new Error(`${file}: no version for the action ${repo} in the snapshot`);
       return tag;
+    })
+    .replace(IMAGE, (_match, image: string) => {
+      const tag = ctx.versions.images?.[image];
+      if (!tag) throw new Error(`${file}: no tag for the image ${image} in the snapshot`);
+      return `${image}:${tag}`;
     })
     .replace(TOKEN, (match, name: string) => tokens[name] ?? match);
 }
@@ -59,6 +71,11 @@ export function templatePath(relative: string, ctx: Ctx): string {
 /** Every GitHub Action a template names, for the version refresh. */
 export function actionsIn(text: string): string[] {
   return [...text.matchAll(ACTION)].map((match) => match[1] as string);
+}
+
+/** Every Docker image a template names with `__IMAGE[name]__`. */
+export function imagesIn(text: string): string[] {
+  return [...text.matchAll(IMAGE)].map((match) => match[1] as string);
 }
 
 /** Tokens a rendered file still has: a typo, or one the context doesn't define. */

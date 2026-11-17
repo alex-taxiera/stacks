@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
-import { actionsIn } from "./compose/tokens.ts";
+import { actionsIn, imagesIn } from "./compose/tokens.ts";
 import type { AppInfo, Ctx, Layer } from "./model.ts";
 import { TEMPLATES_DIR } from "./paths.ts";
 import { makeApp } from "./scaffold.ts";
@@ -18,6 +18,7 @@ function sampleCtx(app?: AppInfo): Ctx {
     pnpm: "12.0.0",
     npm: {},
     actions: {},
+    images: {},
   };
   return {
     repo: {
@@ -64,17 +65,22 @@ export function allPackages(): string[] {
   return [...names].toSorted();
 }
 
-/** Every GitHub Action a template names with `__ACTION[owner/repo]__`. */
-export async function allActions(): Promise<string[]> {
-  const repos = new Set<string>();
+/** Every name `find` returns from any template's text. */
+async function scanTemplates(find: (text: string) => string[]): Promise<string[]> {
+  const names = new Set<string>();
   const visit = async (dir: string) => {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) await visit(full);
-      else if (/\.ya?ml$/.test(entry.name))
-        for (const repo of actionsIn(await readFile(full, "utf8"))) repos.add(repo);
+      else for (const name of find(await readFile(full, "utf8"))) names.add(name);
     }
   };
   await visit(TEMPLATES_DIR);
-  return [...repos].toSorted();
+  return [...names].toSorted();
 }
+
+/** Every GitHub Action a template names with `__ACTION[owner/repo]__`. */
+export const allActions = () => scanTemplates(actionsIn);
+
+/** Every Docker image a template names with `__IMAGE[name]__`. */
+export const allImages = () => scanTemplates(imagesIn);

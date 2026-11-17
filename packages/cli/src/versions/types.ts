@@ -18,6 +18,8 @@ export interface Snapshot {
   npm: Record<string, string>;
   /** GitHub Action (`owner/repo`) → major tag, such as `v6`. */
   actions: Record<string, string>;
+  /** Docker image → tag, such as `postgres` → `18-alpine`. Templates say `__IMAGE[postgres]__`. */
+  images: Record<string, string>;
 }
 
 export interface PackagePolicy {
@@ -45,4 +47,9 @@ export interface Policy {
    * name or a prefix ending in `*`. Anything that matches no group is in `misc`.
    */
   groups: Record<string, string[]>;
+  /**
+   * Which of a Docker image's tags to follow: a pattern whose numeric groups order the tags, such
+   * as `^(\\d+)-alpine$` for Postgres majors. Images are the `docker` group.
+   */
+  images: Record<string, { tag: string; reason?: string }>;
 }

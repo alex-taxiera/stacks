@@ -45,10 +45,11 @@ pnpm dlx @alex-taxiera/stacks add cli tool --package-name @me/tool
   - its deploy or release workflow
 - It records the app in `.stacks.json`.
 
-| Stack | Lands in          | What                                                        | `--deploy`               |
-| ----- | ----------------- | ----------------------------------------------------------- | ------------------------ |
-| `spa` | `apps/<name>`     | Vite, TanStack Router, every page prerendered               | `cloudflare`, `gh-pages` |
-| `cli` | `packages/<name>` | A Node CLI published to npm, shipping a skill like this one | `npm`                    |
+| Stack   | Lands in          | What                                                                     | `--deploy`               |
+| ------- | ----------------- | ------------------------------------------------------------------------ | ------------------------ |
+| `spa`   | `apps/<name>`     | Vite, TanStack Router, every page prerendered                            | `cloudflare`, `gh-pages` |
+| `start` | `apps/<name>`     | Rendered on the server: TanStack Start, better-auth, Drizzle on Postgres | `docker`                 |
+| `cli`   | `packages/<name>` | A Node CLI published to npm, shipping a skill like this one              | `npm`                    |
 
 Run `add` from anywhere inside the repo, then review `git diff` and commit. It never overwrites a
 file that exists, and it fails if the name is taken.

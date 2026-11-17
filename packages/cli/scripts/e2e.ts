@@ -47,6 +47,18 @@ const CASES: Record<string, Case> = {
       ["add", "spa", "docs", "--deploy", "cloudflare"],
     ],
   },
+  // A start app added beside a spa: it shares packages/ui and takes the next ports. Its image
+  // builds from the repo root, migrate stage included.
+  "spa-then-start": {
+    commands: [
+      ["new", "--stack", "spa", "--app", "site", "--deploy", "cloudflare"],
+      ["add", "start", "web", "--deploy", "docker"],
+    ],
+    after: [
+      ["docker", "build", "--file", "apps/web/Dockerfile", "--target", "migrate", "."],
+      ["docker", "build", "--file", "apps/web/Dockerfile", "."],
+    ],
+  },
 };
 
 const { values } = parseArgs({

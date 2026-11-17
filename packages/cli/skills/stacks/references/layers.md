@@ -17,8 +17,9 @@ Its files live in `packages/cli/templates/<layer id>/{root,ui,app}/`:
 - `__TOKENS__` are filled from `src/compose/tokens.ts`:
   - `__APP_NAME__`, `__APP_DIR__`, `__PACKAGE_NAME__`, `__BIN_NAME__`
   - `__UI_PKG__` (only when there's a UI package)
-  - `__DEV_PORT__` (only for apps with ports)
+  - `__DEV_PORT__`, `__DOCKER_PORT__`, `__DB_PORT__` (only for apps with ports)
   - `__ACTION[owner/repo]__`, for a GitHub Action's version
+  - `__IMAGE[name]__`, for a Docker image and its tag, such as `postgres:18-alpine`
 
 ## Which layers run
 

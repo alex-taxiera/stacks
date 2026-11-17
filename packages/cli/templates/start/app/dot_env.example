@@ -1,0 +1,9 @@
+# Copy to `.env.local` for the dev server and drizzle-kit (both gitignored).
+
+# Postgres on the host. `docker compose up -d postgres` in this folder starts one on this port.
+DATABASE_URL=postgresql://postgres:postgres@localhost:__DB_PORT__/__APP_NAME__
+
+# The app's public address.
+BETTER_AUTH_URL=http://localhost:__DEV_PORT__
+# Any long random string: `openssl rand -base64 32`.
+BETTER_AUTH_SECRET=

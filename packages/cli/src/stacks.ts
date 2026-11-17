@@ -1,7 +1,13 @@
 import { cli } from "./layers/cli.ts";
-import { deployCloudflareStatic, deployGhPages, releaseNpm } from "./layers/deploy.ts";
+import {
+  deployCloudflareStatic,
+  deployDocker,
+  deployGhPages,
+  releaseNpm,
+} from "./layers/deploy.ts";
 import { repo } from "./layers/repo.ts";
 import { spa } from "./layers/spa.ts";
+import { start } from "./layers/start.ts";
 import { ui } from "./layers/ui.ts";
 import type { AppInfo, Layer, StackId } from "./model.ts";
 
@@ -40,6 +46,21 @@ export const STACKS: Record<StackId, StackDefinition> = {
     defaultDeploy: "cloudflare",
     addons: {},
     layers: [spa],
+  },
+  start: {
+    id: "start",
+    summary:
+      "Fullstack app rendered on the server: TanStack Start, better-auth, Drizzle on Postgres",
+    kind: "app",
+    needsUi: true,
+    ports: true,
+    defaultAppName: "web",
+    deploys: {
+      docker: { summary: "Docker Compose on one server, behind Traefik", layer: deployDocker },
+    },
+    defaultDeploy: "docker",
+    addons: {},
+    layers: [start],
   },
   cli: {
     id: "cli",

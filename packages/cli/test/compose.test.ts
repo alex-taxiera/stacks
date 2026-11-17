@@ -5,7 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
-import { allActions, allPackages } from "../src/catalog.ts";
+import { allActions, allImages, allPackages } from "../src/catalog.ts";
 import { Overlay } from "../src/compose/overlay.ts";
 import type { AppInfo, StacksFile } from "../src/model.ts";
 import { composeApp, makeApp, readStacksFile } from "../src/scaffold.ts";
@@ -51,9 +51,10 @@ const tool = () =>
   makeApp(STACKS.cli, [], { name: "cli", packageName: "@me/greeter", deploy: "npm" });
 
 describe("the bundled snapshot", () => {
-  it("has a version for every package and action the layers and templates use", async () => {
+  it("has a version for every package, action and image the layers and templates use", async () => {
     expect(allPackages().filter((name) => !versions.npm[name])).toEqual([]);
     expect((await allActions()).filter((repo) => !versions.actions[repo])).toEqual([]);
+    expect((await allImages()).filter((image) => !versions.images[image])).toEqual([]);
   });
 });
 

@@ -109,7 +109,8 @@ stacks is built the way it builds others: this repo is what `stacks new --stack 
 | Refresh versions    | `pnpm stacks versions refresh --group <group> --write`            |
 
 - **Templates never name a version.** Layers list package names; workflows say
-  `__ACTION[owner/repo]__`. A new package or action needs a versions refresh, and
+  `__ACTION[owner/repo]__`; Docker files say `__IMAGE[postgres]__`, and `versions.policy.json`
+  says which of an image's tags to follow. A new package, action or image needs a versions refresh, and
   `test/compose.test.ts` fails until it's in the snapshot.
 - **Templates stay valid source**: tokens in strings or identifier positions, never a templating
   syntax. A token the context doesn't define fails the scaffold.
