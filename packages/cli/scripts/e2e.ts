@@ -194,6 +194,15 @@ function runCase(name: string, testCase: Case) {
     // stacks itself, installed from npm: its bin runs and Intent serves its skill.
     sh("pnpm", ["stacks", "list"], repo);
     sh("pnpm", ["exec", "intent", "load", "@alex-taxiera/stacks#stacks"], repo);
+    // AGENTS.md's Skill Loading block is a copy of what Intent writes. Once oxfmt has been over
+    // the repo, Intent's installer still finds it current, so a new Intent wording fails here.
+    const agents = path.join(repo, "AGENTS.md");
+    const scaffolded = lines(agents);
+    sh("pnpm", ["exec", "intent", "install"], repo);
+    if (lines(agents) !== scaffolded)
+      throw new Error(
+        "Intent rewrote AGENTS.md's Skill Loading block: copy what `intent install` wrote into templates/repo/root/AGENTS.md (and the root's)",
+      );
     for (const [command, ...args] of testCase.after ?? []) sh(command as string, args, repo);
     testCase.verify?.(repo);
     console.log(`\n✔ ${name}`);
