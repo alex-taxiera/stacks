@@ -48,6 +48,7 @@ export const cli: Layer = (ctx) => {
         fields: { intent: { skills: [`workspace:${pkg}`] } },
       },
     },
+    lines: { ".gitignore": ["*.tgz"] },
     agents: [
       {
         region: "apps",

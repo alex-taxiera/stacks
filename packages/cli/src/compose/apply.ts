@@ -82,6 +82,35 @@ function basePackage(target: Target, ctx: Ctx): PackageJson {
   };
 }
 
+/** The order npm's docs and most packages list `package.json`'s keys in; the rest follow. */
+const KEY_ORDER = [
+  "name",
+  "version",
+  "private",
+  "description",
+  "license",
+  "type",
+  "bin",
+  "exports",
+  "imports",
+  "files",
+  "keywords",
+  "repository",
+  "scripts",
+  "dependencies",
+  "devDependencies",
+  "peerDependencies",
+];
+
+function rank(key: string): number {
+  const index = KEY_ORDER.indexOf(key);
+  return index === -1 ? KEY_ORDER.length : index;
+}
+
+function ordered(pkg: PackageJson): PackageJson {
+  return Object.fromEntries(Object.entries(pkg).toSorted(([a], [b]) => rank(a) - rank(b)));
+}
+
 /** Writes each package's `package.json`; returns every dependency name that needs a catalog entry. */
 function writePackages(
   overlay: Overlay,
@@ -123,7 +152,8 @@ function writePackages(
     for (const kind of ["dependencies", "devDependencies", "peerDependencies"] as const) {
       if (Object.keys(deps[kind]).length > 0) merged[kind] = sortKeys(deps[kind]);
     }
-    overlay.writeJson(file, merged);
+    // A package this run creates gets the usual key order; one that exists keeps its own.
+    overlay.writeJson(file, overlay.existedBefore(file) ? merged : ordered(merged));
   }
   return catalogNames;
 }

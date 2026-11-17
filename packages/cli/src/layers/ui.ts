@@ -151,6 +151,14 @@ export const ui: Layer = (ctx) => {
         ],
       },
     },
+    lines: {
+      ".gitignore": [
+        "*storybook.log",
+        "storybook-static",
+        "__screenshots__/",
+        ".vitest-attachments/",
+      ],
+    },
     mcp: {
       // pnpm dlx, not npx: the root's devEngines makes npm and npx refuse to run in the repo.
       "chakra-ui": { command: "pnpm", args: ["dlx", "@chakra-ui/react-mcp"] },

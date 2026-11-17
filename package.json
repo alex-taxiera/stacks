@@ -1,46 +1,30 @@
 {
-  "name": "@alex-taxiera/stacks",
-  "version": "0.1.0",
-  "description": "Scaffold pnpm workspaces of Chakra UI apps: Vite SPAs, Astro sites, TanStack Start fullstack apps and Tauri desktop apps.",
-  "license": "MIT",
-  "bin": {
-    "stacks": "./dist/cli.js"
-  },
-  "files": [
-    "dist",
-    "templates",
-    "versions.json",
-    "versions.policy.json"
-  ],
+  "name": "stacks",
+  "private": true,
   "type": "module",
   "scripts": {
-    "stacks": "node src/cli.ts",
-    "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "stacks": "node packages/cli/src/cli.ts",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "tsc --noEmit && pnpm -r typecheck",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
+    "skills": "intent list",
     "prepare": "husky",
-    "prepack": "pnpm run build",
     "agents:sync": "node scripts/sync-agents.ts",
     "postinstall": "pnpm run agents:sync"
   },
-  "dependencies": {
-    "@clack/prompts": "^1.9.0",
-    "semver": "^7.8.6",
-    "yaml": "^2.9.1"
-  },
   "devDependencies": {
-    "@types/node": "^24.19.2",
-    "@types/semver": "^7.8.0",
-    "husky": "^9.1.7",
-    "lint-staged": "^17.6.0",
-    "oxfmt": "^0.78.0",
-    "oxlint": "^1.93.0",
-    "typescript": "^7.0.2",
-    "vitest": "^5.1.0"
+    "@alex-taxiera/stacks": "workspace:*",
+    "@tanstack/intent": "catalog:",
+    "@types/node": "catalog:",
+    "husky": "catalog:",
+    "lint-staged": "catalog:",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "typescript": "catalog:"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}": [
@@ -49,7 +33,25 @@
     ],
     "*.{json,jsonc,md,mdx,css,yml,yaml,html,toml}": "oxfmt --no-error-on-unmatched-pattern"
   },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": ">=12",
+      "onFail": "error"
+    },
+    "runtime": {
+      "name": "node",
+      "version": ">=24",
+      "onFail": "warn"
+    }
+  },
   "engines": {
     "node": ">=24"
+  },
+  "packageManager": "pnpm@12.21.0",
+  "intent": {
+    "skills": [
+      "workspace:@alex-taxiera/stacks"
+    ]
   }
 }

@@ -12,7 +12,7 @@ import type { Policy, Snapshot } from "./types.ts";
  */
 export const REMOTE_VERSIONS_URL =
   process.env.STACKS_VERSIONS_URL ??
-  "https://raw.githubusercontent.com/alex-taxiera/stacks/trunk/versions.json";
+  "https://raw.githubusercontent.com/alex-taxiera/stacks/trunk/packages/cli/versions.json";
 
 export type VersionsMode = "known-good" | "latest" | "bundled";
 

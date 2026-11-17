@@ -1,12 +1,28 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "import", "unicorn", "oxc", "vitest"],
+  "plugins": ["typescript", "react", "jsx-a11y", "import", "unicorn", "oxc", "vitest"],
   "categories": {
     "correctness": "error",
     "suspicious": "warn"
   },
   "env": {
+    "browser": true,
     "node": true
   },
-  "ignorePatterns": ["dist", "templates", ".agents/skills"]
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "import/no-unassigned-import": [
+      "warn",
+      {
+        "allow": ["**/*.css"]
+      }
+    ]
+  },
+  "ignorePatterns": [
+    "**/dist",
+    "**/storybook-static",
+    "**/routeTree.gen.ts",
+    ".agents/skills",
+    "packages/cli/templates"
+  ]
 }

@@ -1,0 +1,60 @@
+{
+  "name": "@alex-taxiera/stacks",
+  "version": "0.1.0",
+  "description": "Scaffold pnpm workspaces of Chakra UI apps and npm CLIs, with agent setup, TanStack Intent skills and known-good versions.",
+  "keywords": [
+    "chakra-ui",
+    "monorepo",
+    "oxlint",
+    "pnpm",
+    "scaffold",
+    "storybook",
+    "tanstack-intent"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alex-taxiera/stacks.git",
+    "directory": "packages/cli"
+  },
+  "bin": {
+    "stacks": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "templates",
+    "versions.json",
+    "versions.policy.json"
+  ],
+  "type": "module",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "dev": "node src/cli.ts",
+    "stacks": "node src/cli.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "e2e": "node scripts/e2e.ts",
+    "skills:check": "intent validate skills && intent stale",
+    "prepack": "pnpm run build"
+  },
+  "dependencies": {
+    "@clack/prompts": "catalog:",
+    "semver": "catalog:",
+    "yaml": "catalog:"
+  },
+  "devDependencies": {
+    "@tanstack/intent": "catalog:",
+    "@types/node": "catalog:",
+    "@types/semver": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

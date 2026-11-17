@@ -1,7 +1,7 @@
-# Keeps versions.json, the known-good snapshot every `stacks new` reads, current.
+# Keeps packages/cli/versions.json, the known-good snapshot every `stacks new` reads, current.
 #
 # Nightly it resolves the newest allowed version of everything the templates use (respecting
-# versions.policy.json and a three-day minimum release age), splits the changes into groups
+# packages/cli/versions.policy.json and a three-day minimum release age), splits the changes into groups
 # (storybook, tanstack, chakra…), and scaffolds every case with each group's candidate versions.
 #
 # - A group whose scaffolds all pass, with no major bump, is committed straight to trunk. The
@@ -46,13 +46,13 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           mkdir -p candidates
-          node src/cli.ts versions refresh --json > candidates/all.changes.json
+          node packages/cli/src/cli.ts versions refresh --json > candidates/all.changes.json
           for group in $(jq -r '.groups[]' candidates/all.changes.json); do
-            node src/cli.ts versions refresh --group "$group" --json \
+            node packages/cli/src/cli.ts versions refresh --group "$group" --json \
               --out "candidates/$group.json" > "candidates/$group.changes.json"
           done
           echo "groups=$(jq -c '.groups' candidates/all.changes.json)" >> "$GITHUB_OUTPUT"
-          echo "cases=$(node scripts/e2e.ts --list)" >> "$GITHUB_OUTPUT"
+          echo "cases=$(node packages/cli/scripts/e2e.ts --list)" >> "$GITHUB_OUTPUT"
           echo "## Newer versions" >> "$GITHUB_STEP_SUMMARY"
           jq -r '.changes[] | "- **\(.group)** `\(.name)` \(.from // "new") → \(.to)\(if .major then " (major)" else "" end)"' \
             candidates/all.changes.json >> "$GITHUB_STEP_SUMMARY"
@@ -83,7 +83,7 @@ jobs:
         with:
           name: candidates
           path: candidates
-      - run: node scripts/e2e.ts --case ${{ matrix.case }} --versions-file candidates/${{ matrix.group }}.json
+      - run: node packages/cli/scripts/e2e.ts --case ${{ matrix.case }} --versions-file candidates/${{ matrix.group }}.json
       - run: echo ok > passed.txt
       - uses: actions/upload-artifact@v7
         with:
@@ -142,9 +142,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           files=(); for group in $PASSED; do files+=("candidates/$group.changes.json"); done
-          node src/cli.ts versions apply "${files[@]}"
-          pnpm exec oxfmt versions.json
-          git add versions.json
+          node packages/cli/src/cli.ts versions apply "${files[@]}"
+          pnpm exec oxfmt packages/cli/versions.json
+          git add packages/cli/versions.json
           git commit -m "chore(versions): refresh ${PASSED// /, }"
           git push
 
@@ -159,9 +159,9 @@ jobs:
           git fetch origin trunk
           git checkout -B canary/majors origin/trunk
           files=(); for group in $PASSED; do files+=("candidates/$group.changes.json"); done
-          node src/cli.ts versions apply "${files[@]}"
-          pnpm exec oxfmt versions.json
-          git add versions.json
+          node packages/cli/src/cli.ts versions apply "${files[@]}"
+          pnpm exec oxfmt packages/cli/versions.json
+          git add packages/cli/versions.json
           git commit -m "chore(versions)!: major bumps in ${PASSED// /, }"
           git push --force origin canary/majors
           {

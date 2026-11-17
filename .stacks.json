@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "cli": "0.1.0",
+  "repo": {
+    "name": "stacks",
+    "title": "stacks",
+    "scope": "@stacks",
+    "accent": "teal",
+    "github": "alex-taxiera/stacks"
+  },
+  "apps": [
+    {
+      "name": "cli",
+      "title": "stacks",
+      "stack": "cli",
+      "kind": "package",
+      "dir": "packages/cli",
+      "packageName": "@alex-taxiera/stacks",
+      "deploy": "npm",
+      "addons": []
+    }
+  ]
+}
