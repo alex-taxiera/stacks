@@ -1,6 +1,6 @@
 {
   "name": "@alex-taxiera/stacks",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Scaffold pnpm workspaces of Chakra UI apps and npm CLIs, with agent setup, TanStack Intent skills and known-good versions.",
   "keywords": [
     "chakra-ui",
