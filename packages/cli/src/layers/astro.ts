@@ -18,15 +18,17 @@ export const astro: Layer = (ctx) => {
           ...REACT_TYPES,
           ...STORYBOOK,
           ...TYPESCRIPT,
+          "@astrojs/ts-content-mapper",
           "@vitejs/plugin-react",
           "vite",
         ],
         scripts: {
           dev: `${typegen} && astro dev`,
-          build: `${typegen} && astro build && tsc --noEmit`,
+          // `--runExternalCode` lets tsc run the .astro content mapper in tsconfig.json.
+          build: `${typegen} && astro build && tsc --noEmit --runExternalCode`,
           preview: "astro preview",
           // `astro sync` writes the content collections' types that `tsc` reads.
-          typecheck: `${typegen} && astro sync && tsc --noEmit`,
+          typecheck: `${typegen} && astro sync && tsc --noEmit --runExternalCode`,
           test: "vitest run",
           ...storybookScripts(storybookPort),
         },
@@ -50,9 +52,9 @@ export const astro: Layer = (ctx) => {
           "    component responds to the user.",
           "  - Every React component a page uses directly is its own root, so it wraps itself in",
           `    \`IslandProvider\` (\`${ui}/island\`). The layout renders \`ChakraStyles\` once, in \`<head>\`.`,
-          "  - `typecheck` covers `.ts` and `.tsx`, not `.astro` frontmatter: `astro check` needs",
-          "    TypeScript 6, and `@astrojs/ts-content-mapper` 7.1. Keep logic in `.ts` files. oxlint and",
-          "    oxfmt skip `.astro` files too.",
+          "  - `typecheck` covers `.astro` files too: `tsconfig.json`'s `contentMappers` hands them to",
+          "    `@astrojs/ts-content-mapper`, which needs TypeScript 7.1+ and `tsc --runExternalCode`.",
+          "    oxlint and oxfmt skip `.astro` files, so keep logic in `.ts` files.",
         ].join("\n"),
       },
       {

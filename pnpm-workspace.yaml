@@ -17,6 +17,6 @@ catalog:
   oxfmt: ^0.78.0
   oxlint: ^1.93.0
   semver: ^7.8.6
-  typescript: ^7.0.2
+  typescript: 7.1.0-beta
   vitest: ^5.1.0
   yaml: ^2.9.1

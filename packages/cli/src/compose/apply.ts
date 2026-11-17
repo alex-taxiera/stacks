@@ -210,7 +210,9 @@ function writeCatalog(overlay: Overlay, ctx: Ctx, names: Set<string>, warnings: 
     }
     const existing = doc.getIn(["catalog", name]);
     if (existing === undefined) {
-      doc.setIn(["catalog", name], `^${version}`);
+      // A prerelease is pinned: `^7.1.0-beta` would take any newer 7.1.0 prerelease, nightlies
+      // (`7.1.0-dev.*`) included.
+      doc.setIn(["catalog", name], semver.prerelease(version) ? version : `^${version}`);
       continue;
     }
     const range = String(isScalar(existing) ? existing.value : existing);

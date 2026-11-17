@@ -15,6 +15,7 @@ sources:
   - "packages/cli/src/commands/new.ts"
   - "packages/cli/src/commands/update.ts"
   - "packages/cli/src/compose/merge.ts"
+  - "packages/cli/src/compose/apply.ts"
   - "packages/cli/src/layers/**"
 ---
 
@@ -83,6 +84,8 @@ known-good versions; moving those is Dependabot's job, or yours.
 - **`pnpm-workspace.yaml`'s `catalog:`** holds one version of every shared dependency. Packages ask
   for `"catalog:"`.
   - Change a version in the catalog, never in a package.
+  - A prerelease (such as `typescript: 7.1.0-beta`) is an exact version, not a `^` range: a
+    range would also take nightlies like `7.1.0-dev.*`. Move it to `^<version>` once it's stable.
   - `add` only adds missing entries and never upgrades one. It warns when an entry is a major
     behind stacks' known-good version.
 - **`.stacks.json`** records the repo, the UI package and every app with its ports. `add` reads it.

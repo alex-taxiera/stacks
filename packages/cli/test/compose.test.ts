@@ -111,6 +111,15 @@ describe("new --stack spa", () => {
     expect(workspace.catalog.react).toBe(`^${versions.npm.react}`);
   });
 
+  it("pins a prerelease in the catalog, so nightlies don't satisfy it", async () => {
+    versions.npm.typescript = "7.1.0-beta";
+    await compose(emptyRepo(), web());
+    const workspace = parse(await read("pnpm-workspace.yaml")) as {
+      catalog: Record<string, string>;
+    };
+    expect(workspace.catalog.typescript).toBe("7.1.0-beta");
+  });
+
   it("fills in tokens, including action versions", async () => {
     await compose(emptyRepo(), web());
     expect(await read(".github/workflows/ci.yml")).toContain(

@@ -9,6 +9,10 @@
       "trackNode": true,
       "reason": "Types for the Node major in .nvmrc, not the newest Node."
     },
+    "typescript": {
+      "tag": "beta",
+      "reason": "7.1 lets tsc check .astro files through @astrojs/ts-content-mapper. Drop this once 7.1.0 is `latest`, or the canary stays on the beta."
+    },
     "@alex-taxiera/stacks": {
       "minReleaseAgeDays": 0,
       "reason": "stacks itself: its own CI scaffolds and checks every stack before a release."

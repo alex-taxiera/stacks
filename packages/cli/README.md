@@ -85,11 +85,13 @@ built together.
   - Passing groups with a major bump go into one `canary/majors` PR for review.
   - Failing groups open an issue. One broken release never holds the others back.
 - **[`versions.policy.json`](versions.policy.json) holds the exceptions**: the Node major
-  (24 until machines move to 26), `@types/node` tracking it, and a `range` for anything that has
-  to wait.
+  (24 until machines move to 26), `@types/node` tracking it, a `range` for anything that has
+  to wait, and a `tag` for anything that runs ahead (TypeScript follows `beta` until 7.1 is
+  stable, for `.astro` typechecking).
 - **Generated repos stay current on their own**, with grouped Dependabot PRs and pnpm's
-  `minimumReleaseAge`. `add` never upgrades an existing catalog entry; it warns when the
-  repo's is a major behind.
+  `minimumReleaseAge`. The catalog asks for `^<version>`, or the exact version for a
+  prerelease. `add` never upgrades an existing catalog entry; it warns when the repo's is a
+  major behind.
 
 ```sh
 pnpm stacks versions                    # summarise the snapshot
