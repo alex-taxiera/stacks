@@ -18,6 +18,9 @@ export default defineConfig({
   resolve: {
     // `#/*` imports, from tsconfig.json's `paths`.
     tsconfigPaths: true,
+    // One copy of each, for this app and the UI package's source alike. pnpm can install two
+    // copies when their optional peers differ, and two Chakras or Reacts don't share a context.
+    dedupe: ["@chakra-ui/react", "@emotion/react", "next-themes", "react", "react-dom"],
   },
   plugins: [
     !isVitest && devtools(),

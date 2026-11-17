@@ -1,5 +1,6 @@
 import { cli } from "./layers/cli.ts";
 import {
+  deployCloudflareSsr,
   deployCloudflareStatic,
   deployDocker,
   deployGhPages,
@@ -57,6 +58,10 @@ export const STACKS: Record<StackId, StackDefinition> = {
     defaultAppName: "web",
     deploys: {
       docker: { summary: "Docker Compose on one server, behind Traefik", layer: deployDocker },
+      cloudflare: {
+        summary: "Cloudflare Workers, with Postgres through Hyperdrive",
+        layer: deployCloudflareSsr,
+      },
     },
     defaultDeploy: "docker",
     addons: {},

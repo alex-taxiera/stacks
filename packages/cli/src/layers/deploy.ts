@@ -150,3 +150,43 @@ export const deployDocker: Layer = (ctx) => {
     ],
   };
 };
+
+/**
+ * The server as a Cloudflare Worker, with Postgres through Hyperdrive, deployed (migrations first)
+ * by a path-filtered workflow.
+ */
+export const deployCloudflareSsr: Layer = (ctx) => {
+  const name = ctx.app?.name ?? "app";
+  const devPort = ctx.app?.devPort ?? 3000;
+  return {
+    id: "deploy-cloudflare-ssr",
+    packages: {
+      app: {
+        devDependencies: ["wrangler"],
+        scripts: {
+          // The built Worker in workerd, on the dev server's port so .env.local's URL fits.
+          preview: `wrangler dev --port ${devPort} --env-file .env.local`,
+          deploy: "pnpm run build && wrangler deploy",
+        },
+      },
+    },
+    yaml: {
+      // Wrangler's local runtime; only `wrangler dev` runs it.
+      "pnpm-workspace.yaml": { allowBuilds: { workerd: false } },
+    },
+    lines: { ".gitignore": [".wrangler/"] },
+    agents: [
+      {
+        region: "rules",
+        id: `deploy:${name}`,
+        body: [
+          `- **\`apps/${name}\` deploys to Cloudflare Workers** from \`trunk\` through`,
+          `  \`.github/workflows/deploy-${name}.yml\`, which runs the migrations first: **every migration`,
+          "  must work with the previous release's code**. Postgres is reached through Hyperdrive, one",
+          "  connection per request (`src/db/index.ts`); its id and the Worker's settings are in",
+          `  \`nitro.config.ts\`. \`pnpm --filter ${name} preview\` runs the built Worker locally.`,
+        ].join("\n"),
+      },
+    ],
+  };
+};

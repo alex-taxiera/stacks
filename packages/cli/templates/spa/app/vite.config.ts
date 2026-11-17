@@ -111,6 +111,9 @@ export default defineConfig(({ command }) => ({
   resolve: {
     // `#/*` imports, from tsconfig.json's `paths`.
     tsconfigPaths: true,
+    // One copy of each, for this app and the UI package's source alike. pnpm can install two
+    // copies when their optional peers differ, and two Chakras or Reacts don't share a context.
+    dedupe: ["@chakra-ui/react", "@emotion/react", "next-themes", "react", "react-dom"],
     alias: {
       // Prerendering runs the bundle in Node, so these resolve to the builds that work without a
       // DOM. The browser builds of Emotion touch `document` at import time, wait for

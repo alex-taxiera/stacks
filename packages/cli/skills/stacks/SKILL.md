@@ -48,7 +48,7 @@ pnpm dlx @alex-taxiera/stacks add cli tool --package-name @me/tool
 | Stack   | Lands in          | What                                                                     | `--deploy`               |
 | ------- | ----------------- | ------------------------------------------------------------------------ | ------------------------ |
 | `spa`   | `apps/<name>`     | Vite, TanStack Router, every page prerendered                            | `cloudflare`, `gh-pages` |
-| `start` | `apps/<name>`     | Rendered on the server: TanStack Start, better-auth, Drizzle on Postgres | `docker`                 |
+| `start` | `apps/<name>`     | Rendered on the server: TanStack Start, better-auth, Drizzle on Postgres | `docker`, `cloudflare`   |
 | `cli`   | `packages/<name>` | A Node CLI published to npm, shipping a skill like this one              | `npm`                    |
 
 Run `add` from anywhere inside the repo, then review `git diff` and commit. It never overwrites a

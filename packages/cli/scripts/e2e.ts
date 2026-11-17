@@ -47,6 +47,12 @@ const CASES: Record<string, Case> = {
       ["add", "spa", "docs", "--deploy", "cloudflare"],
     ],
   },
+  // A Worker: Nitro writes its config, and wrangler checks the bundle and bindings without an
+  // account.
+  "start-cloudflare": {
+    commands: [["new", "--stack", "start", "--deploy", "cloudflare"]],
+    after: [["pnpm", "--filter", "web", "exec", "wrangler", "deploy", "--dry-run"]],
+  },
   // A start app added beside a spa: it shares packages/ui and takes the next ports. Its image
   // builds from the repo root, migrate stage included.
   "spa-then-start": {
