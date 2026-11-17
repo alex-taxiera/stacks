@@ -13,7 +13,7 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { LinkButton } from "__UI_PKG__/link-button";
 import { Provider } from "__UI_PKG__/provider";
 import { Toaster } from "__UI_PKG__/toaster";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import { Footer } from "#/components/Footer";
 import { Header } from "#/components/Header";
@@ -70,6 +70,12 @@ function RootLayout() {
   const { viewer } = Route.useRouteContext();
   const refreshViewer = useRefreshViewer();
   const navigate = useNavigate();
+
+  // Marks the page as interactive once React has taken over the server's HTML, for tests (and
+  // anything else) that must not type into a form React will replace.
+  useEffect(() => {
+    document.documentElement.dataset.hydrated = "";
+  }, []);
 
   return (
     <Flex direction="column" minH="100dvh">

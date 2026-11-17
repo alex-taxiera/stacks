@@ -29,7 +29,7 @@ A repo with a `.stacks.json` at its root was made by stacks. It's a pnpm workspa
 
 ```sh
 pnpm dlx @alex-taxiera/stacks list                         # stacks, deploy targets, add-ons
-pnpm dlx @alex-taxiera/stacks add spa docs --deploy gh-pages
+pnpm dlx @alex-taxiera/stacks add spa docs --deploy gh-pages --with e2e
 pnpm dlx @alex-taxiera/stacks add cli tool --package-name @me/tool
 ```
 

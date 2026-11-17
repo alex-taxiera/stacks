@@ -2,7 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { actionsIn, imagesIn } from "./compose/tokens.ts";
-import type { AppInfo, Ctx, Layer } from "./model.ts";
+import type { AppInfo, Ctx, Layer, LayerSpec } from "./model.ts";
 import { TEMPLATES_DIR } from "./paths.ts";
 import { makeApp } from "./scaffold.ts";
 import { appLayers, REPO_LAYERS, STACKS, UI_LAYER } from "./stacks.ts";
@@ -35,21 +35,11 @@ function sampleCtx(app?: AppInfo): Ctx {
   };
 }
 
-/** Every npm package any stack, deploy target or add-on can ask for. */
-export function allPackages(): string[] {
-  const names = new Set<string>();
+/** What every layer asks for, evaluated for every stack, deploy target and add-on. */
+function allSpecs(): LayerSpec[] {
+  const specs: LayerSpec[] = [];
   const collect = (layers: Layer[], ctx: Ctx) => {
-    for (const layer of layers) {
-      for (const part of Object.values(layer(ctx).packages ?? {})) {
-        for (const name of [
-          ...(part.dependencies ?? []),
-          ...(part.devDependencies ?? []),
-          ...(part.peerDependencies ?? []),
-        ]) {
-          names.add(name);
-        }
-      }
-    }
+    for (const layer of layers) specs.push(layer(ctx));
   };
   collect([...REPO_LAYERS, UI_LAYER], sampleCtx());
   for (const stack of Object.values(STACKS)) {
@@ -62,10 +52,27 @@ export function allPackages(): string[] {
       collect(appLayers(app), sampleCtx(app));
     }
   }
+  return specs;
+}
+
+/** Every npm package any stack, deploy target or add-on can ask for. */
+export function allPackages(): string[] {
+  const names = new Set<string>();
+  for (const spec of allSpecs()) {
+    for (const part of Object.values(spec.packages ?? {})) {
+      for (const name of [
+        ...(part.dependencies ?? []),
+        ...(part.devDependencies ?? []),
+        ...(part.peerDependencies ?? []),
+      ]) {
+        names.add(name);
+      }
+    }
+  }
   return [...names].toSorted();
 }
 
-/** Every name `find` returns from any template's text. */
+/** Every name `find` returns from any template's text, or any layer's patches. */
 async function scanTemplates(find: (text: string) => string[]): Promise<string[]> {
   const names = new Set<string>();
   const visit = async (dir: string) => {
@@ -76,6 +83,9 @@ async function scanTemplates(find: (text: string) => string[]): Promise<string[]
     }
   };
   await visit(TEMPLATES_DIR);
+  for (const spec of allSpecs()) {
+    for (const name of find(JSON.stringify([spec.yaml, spec.json]))) names.add(name);
+  }
   return [...names].toSorted();
 }
 

@@ -39,7 +39,9 @@ AGENTS.md, .agents/   agent instructions, skills and MCP servers (Chakra, one St
 | `tauri` | _Planned:_ Tauri 2 desktop app with a Rust core crate and updater        | GitHub Releases                    |
 | `astro` | _Planned:_ Astro with React islands                                      | Cloudflare Workers, GH Pages       |
 
-`stacks list` shows what this version has, with its deploy targets and add-ons.
+`stacks list` shows what this version has, with its deploy targets and add-ons. Apps with a UI
+take add-ons with `--with`: `e2e` (Playwright tests of whole flows, with a CI job; a `start`
+app's brings Postgres) and `zustand` (a store for state components share). Sentry is next.
 
 ## Skills that ship with a CLI
 

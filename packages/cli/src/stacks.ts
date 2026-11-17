@@ -1,3 +1,4 @@
+import { addonE2e, addonZustand } from "./layers/addons.ts";
 import { cli } from "./layers/cli.ts";
 import {
   deployCloudflareSsr,
@@ -29,6 +30,12 @@ export interface StackDefinition {
   layers: Layer[];
 }
 
+/** The add-ons the apps with a UI offer. */
+const ADDONS: StackDefinition["addons"] = {
+  e2e: { summary: "Playwright tests of whole flows in Chromium, with a CI job", layer: addonE2e },
+  zustand: { summary: "Zustand for state shared between components", layer: addonZustand },
+};
+
 export const REPO_LAYERS: Layer[] = [repo];
 export const UI_LAYER: Layer = ui;
 
@@ -45,7 +52,7 @@ export const STACKS: Record<StackId, StackDefinition> = {
       "gh-pages": { summary: "GitHub Pages", layer: deployGhPages },
     },
     defaultDeploy: "cloudflare",
-    addons: {},
+    addons: ADDONS,
     layers: [spa],
   },
   start: {
@@ -64,7 +71,7 @@ export const STACKS: Record<StackId, StackDefinition> = {
       },
     },
     defaultDeploy: "docker",
-    addons: {},
+    addons: ADDONS,
     layers: [start],
   },
   cli: {

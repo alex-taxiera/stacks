@@ -40,7 +40,11 @@ const CASES: Record<string, Case> = {
     ],
     after: cliChecks("tool", "packages/tool"),
   },
-  "spa-cloudflare": { commands: [["new", "--stack", "spa", "--deploy", "cloudflare"]] },
+  // With every add-on; its Playwright tests run against the built site.
+  "spa-cloudflare": {
+    commands: [["new", "--stack", "spa", "--deploy", "cloudflare", "--with", "e2e,zustand"]],
+    after: [["pnpm", "--filter", "web", "e2e"]],
+  },
   "spa-multi": {
     commands: [
       ["new", "--stack", "spa", "--app", "web", "--deploy", "gh-pages", "--accent", "purple"],
@@ -50,7 +54,7 @@ const CASES: Record<string, Case> = {
   // A Worker: Nitro writes its config, and wrangler checks the bundle and bindings without an
   // account.
   "start-cloudflare": {
-    commands: [["new", "--stack", "start", "--deploy", "cloudflare"]],
+    commands: [["new", "--stack", "start", "--deploy", "cloudflare", "--with", "e2e,zustand"]],
     after: [["pnpm", "--filter", "web", "exec", "wrangler", "deploy", "--dry-run"]],
   },
   // A start app added beside a spa: it shares packages/ui and takes the next ports. Its image

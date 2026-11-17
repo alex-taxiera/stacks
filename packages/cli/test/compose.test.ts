@@ -47,6 +47,8 @@ const read = (file: string) => readFile(path.join(root, file), "utf8");
 const readJson = async <T>(file: string) => JSON.parse(await read(file)) as T;
 
 const web = () => makeApp(STACKS.spa, [], { name: "web", deploy: "cloudflare" });
+const startApp = (deploy: string, addons: string[] = []) =>
+  makeApp(STACKS.start, [], { name: "web", deploy, addons });
 const tool = () =>
   makeApp(STACKS.cli, [], { name: "cli", packageName: "@me/greeter", deploy: "npm" });
 
@@ -232,5 +234,42 @@ describe("readStacksFile", () => {
     expect(file.ui).toEqual({ package: "@old/ui", storybookPort: 6008 });
     expect(file.repo).not.toHaveProperty("uiPackage");
     expect(file.apps[0]).toMatchObject({ kind: "app", dir: "apps/web", packageName: "web" });
+  });
+});
+
+describe("new --stack start", () => {
+  it("takes its database module from the deploy target", async () => {
+    await compose(emptyRepo(), startApp("docker"));
+    expect(await read("apps/web/src/db/index.ts")).toContain("closeDb");
+    expect(await read("apps/web/compose.yaml")).toContain("target: migrate");
+    expect(await read("apps/web/compose.yaml")).toContain(`postgres:${versions.images.postgres}`);
+  });
+
+  it("builds a Worker for Cloudflare, with Hyperdrive", async () => {
+    await compose(emptyRepo(), startApp("cloudflare"));
+    expect(await read("apps/web/src/db/index.ts")).toContain("HYPERDRIVE");
+    expect(await read("apps/web/nitro.config.ts")).toContain('preset: "cloudflare-module"');
+    expect(await read(".github/workflows/deploy-web.yml")).toContain("db:migrate");
+  });
+
+  it("adds Playwright and Zustand, with a CI job that brings Postgres", async () => {
+    const { overlay } = await compose(emptyRepo(), startApp("docker", ["e2e", "zustand"]));
+    expect(overlay.changed).toContain("apps/web/e2e/accounts.spec.ts");
+    expect(overlay.changed).toContain("apps/web/src/stores/preferences.ts");
+    const app = await readJson<{ scripts: Record<string, string>; dependencies: object }>(
+      "apps/web/package.json",
+    );
+    expect(app.scripts.e2e).toBe("playwright test");
+    expect(app.dependencies).toHaveProperty("zustand");
+    const tsconfig = await readJson<{ include: string[] }>("apps/web/tsconfig.json");
+    expect(tsconfig.include).toEqual(
+      expect.arrayContaining(["src", "e2e", "playwright.config.ts"]),
+    );
+    const ci = parse(await read(".github/workflows/ci.yml")) as {
+      jobs: Record<string, { services?: { postgres: { image: string } } }>;
+    };
+    expect(ci.jobs["e2e-web"]?.services?.postgres.image).toBe(
+      `postgres:${versions.images.postgres}`,
+    );
   });
 });

@@ -16,7 +16,8 @@
       "react-dom",
       "@types/react",
       "@types/react-dom",
-      "babel-plugin-react-compiler"
+      "babel-plugin-react-compiler",
+      "zustand"
     ],
     "chakra": [
       "@chakra-ui/*",
@@ -33,7 +34,8 @@
       "vitest",
       "@vitest/*",
       "playwright",
-      "vite-prerender-plugin"
+      "vite-prerender-plugin",
+      "@playwright/test"
     ],
     "tanstack": ["@tanstack/*", "nitro"],
     "oxc": ["oxlint", "oxfmt"],
