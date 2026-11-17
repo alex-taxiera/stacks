@@ -218,6 +218,8 @@ export const releaseGithub: Layer = (ctx) => {
           `  \`apps/${name}/src-tauri/tauri.conf.json\`, push the tag \`${name}@v<version>\` (or run the workflow by hand),`,
           "  then publish the draft release it makes once its installers are attached. Installers",
           "  aren't code-signed: Windows SmartScreen and macOS Gatekeeper warn until they are.",
+          `  To cut one, load the \`release-${name}\` skill (\`.agents/skills/release-${name}\`): it has every`,
+          "  step, check and recovery.",
         ].join("\n"),
       },
     ],

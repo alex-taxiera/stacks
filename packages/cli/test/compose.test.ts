@@ -455,11 +455,22 @@ describe("tauri --with updater", () => {
     expect(await read("apps/desktop/scripts/updater-keys.ts")).toContain(
       'const SECRET_PREFIX = "DESKTOP";',
     );
+
+    const skill = await read(".agents/skills/release-desktop/SKILL.md");
+    expect(skill).toContain("name: release-desktop");
+    expect(skill).toContain(
+      "curl -sL https://github.com/me/demo/releases/download/desktop-updater/latest.json",
+    );
+    expect(skill).toContain("`DESKTOP_UPDATER_KEY`");
+    expect(skill).not.toContain("stacks:slot");
   });
 
   it("leaves no updater code in an app without it", async () => {
     await compose(emptyRepo(), desktop());
     expect(await read("apps/desktop/src-tauri/src/lib.rs")).not.toMatch(/updater|stacks:slot/);
     expect(await read("apps/desktop/src/App.tsx")).not.toMatch(/UpdateButton|stacks:slot/);
+    const skill = await read(".agents/skills/release-desktop/SKILL.md");
+    expect(skill).toContain("git tag desktop@v<version>");
+    expect(skill).not.toMatch(/updater|stacks:slot|\n\n\n/);
   });
 });

@@ -164,6 +164,69 @@ export const tauri: Layer = (ctx) => {
   };
 };
 
+/** What the release skill says about the updater, in the places it left for it. */
+function releaseSkillFills(
+  name: string,
+  secret: string,
+  endpoint: string,
+): Record<string, string[]> {
+  const fence = "```";
+  return {
+    "updater-rules": [
+      "- **Publishing is also the update.** Publishing makes",
+      `  \`.github/workflows/updater-${name}.yml\` copy the release's \`latest.json\` to the`,
+      `  \`${name}-updater\` release, and every installed copy offers the update the next time it starts.`,
+      "  Setting the release back to a draft doesn't undo that: see step 8.",
+    ],
+    "updater-notes": [
+      "If you have <previous version> installed, the app offers this update when it starts.",
+    ],
+    "updater-failures": [
+      `- Signing errors mean the \`${secret}_UPDATER_KEY\` and \`${secret}_UPDATER_KEY_PASSWORD\``,
+      `  secrets are missing or wrong. \`pnpm --filter ${name} updater:keys --secrets\` sets them from`,
+      "  the key in `~/.tauri`, on the machine that has it. Only its owner can; tell the user.",
+    ],
+    "updater-assets": [
+      "",
+      "The updater adds `latest.json`, macOS `_universal.app.tar.gz`, and a `.sig` beside every file but",
+      "the `.dmg`. Check the manifest, which is what installed copies read:",
+      "",
+      `${fence}bash`,
+      "gh api 'repos/{owner}/{repo}/releases/<release-id>' --jq '.assets[] | select(.name==\"latest.json\") | .id'",
+      "gh api 'repos/{owner}/{repo}/releases/assets/<asset-id>' -H 'Accept: application/octet-stream' > <scratch dir>/latest.json",
+      "jq '{version, platforms: (.platforms | keys)}' <scratch dir>/latest.json",
+      fence,
+      "",
+      "`version` must be `<version>`, and `platforms` must cover `windows-x86_64`, `darwin-aarch64`,",
+      "`darwin-x86_64` and `linux-x86_64`. A platform missing from it gets no update.",
+    ],
+    "updater-publish": [
+      "",
+      `Publishing also starts \`.github/workflows/updater-${name}.yml\`, which points \`${name}-updater\``,
+      "at this release. Watch it, then check what installed copies now see:",
+      "",
+      `${fence}bash`,
+      `gh run watch $(gh run list --workflow updater-${name}.yml --limit 5 --json databaseId,event --jq '[.[] | select(.event=="release")][0].databaseId') --exit-status`,
+      `curl -sL ${endpoint} | jq -r .version   # <version>`,
+      fence,
+      "",
+      "If the run failed, installed copies aren't offered the update yet: re-run it with",
+      "`gh api -X POST 'repos/{owner}/{repo}/actions/runs/<run-id>/rerun'`.",
+    ],
+    "updater-rollback": [
+      `It doesn't stop the update, though: installed copies are offered it until \`${name}-updater\``,
+      "points back at the last good release:",
+      "",
+      `${fence}bash`,
+      "gh release download <last-good-tag> --pattern latest.json --dir <scratch dir>",
+      `gh release upload ${name}-updater <scratch dir>/latest.json --clobber`,
+      fence,
+      "",
+      "Copies that already updated stay on the bad build.",
+    ],
+  };
+}
+
 /**
  * In-app updates: the app checks its own `<name>-updater` release for a newer version and installs
  * it. Release builds sign what they make with a key that `updater:keys` makes, once, outside the
@@ -173,6 +236,7 @@ export const addonUpdater: Layer = (ctx) => {
   const app = requireApp(ctx.app);
   const secret = app.name.toUpperCase().replaceAll("-", "_");
   const conf = `${app.dir}/src-tauri/tauri.conf.json`;
+  const endpoint = `https://github.com/${ctx.repo.github}/releases/download/${app.name}-updater/latest.json`;
   // Code in the stack's own files, where it left room for an updater.
   const slots: LayerSpec["slots"] = {
     [`${app.dir}/src-tauri/Cargo.toml`]: {
@@ -218,6 +282,7 @@ export const addonUpdater: Layer = (ctx) => {
         "updaterJsonPreferNsis: true",
       ],
     },
+    [`.agents/skills/release-${app.name}/SKILL.md`]: releaseSkillFills(app.name, secret, endpoint),
   };
   return {
     id: "addon-updater",
@@ -233,9 +298,7 @@ export const addonUpdater: Layer = (ctx) => {
           updater: {
             // `updater:keys` fills it in.
             pubkey: "",
-            endpoints: [
-              `https://github.com/${ctx.repo.github}/releases/download/${app.name}-updater/latest.json`,
-            ],
+            endpoints: [endpoint],
             // A progress window, no questions; the app closes while it installs.
             windows: { installMode: "passive" },
           },
