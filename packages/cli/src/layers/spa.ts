@@ -41,8 +41,16 @@ export const spa: Layer = (ctx) => {
           ...storybookScripts(storybookPort),
         },
       },
-      // TanStack Router ships skills for routing, data loading and the like; Intent serves them.
-      root: { fields: { intent: { skills: ["@tanstack/*"] } } },
+      root: {
+        scripts: {
+          // One package at a time. vite-prerender-plugin (0.5) builds its prerender in its own
+          // package directory, which pnpm shares between apps, and clears it first: two spa
+          // builds at once delete each other's files.
+          build: "pnpm -r --workspace-concurrency=1 build",
+        },
+        // TanStack Router ships skills for routing, data loading and the like; Intent serves them.
+        fields: { intent: { skills: ["@tanstack/*"] } },
+      },
     },
     mcp: {
       [`storybook-${app.name}`]: { type: "http", url: `http://localhost:${storybookPort}/mcp` },
