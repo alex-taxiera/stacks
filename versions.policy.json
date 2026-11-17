@@ -1,0 +1,44 @@
+{
+  "node": {
+    "major": "24",
+    "reason": "Node 26 became LTS in October 2026; every machine and existing repo is still on 24."
+  },
+  "minReleaseAgeDays": 3,
+  "packages": {
+    "@types/node": {
+      "trackNode": true,
+      "reason": "Types for the Node major in .nvmrc, not the newest Node."
+    }
+  },
+  "groups": {
+    "react": [
+      "react",
+      "react-dom",
+      "@types/react",
+      "@types/react-dom",
+      "babel-plugin-react-compiler"
+    ],
+    "chakra": [
+      "@chakra-ui/*",
+      "@emotion/*",
+      "next-themes",
+      "react-icons",
+      "@fontsource-variable/*"
+    ],
+    "storybook": ["storybook", "@storybook/*"],
+    "vite": [
+      "vite",
+      "@vitejs/*",
+      "@rolldown/*",
+      "vitest",
+      "@vitest/*",
+      "playwright",
+      "vite-prerender-plugin"
+    ],
+    "tanstack": ["@tanstack/*"],
+    "oxc": ["oxlint", "oxfmt"],
+    "typescript": ["typescript", "@types/node"],
+    "tooling": ["husky", "lint-staged"],
+    "cloudflare": ["wrangler"]
+  }
+}

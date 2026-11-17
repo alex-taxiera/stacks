@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [trunk]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Git hooks are for local commits only.
+  HUSKY: 0
+
+jobs:
+  check:
+    name: Lint, format and typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@__ACTION[actions/checkout]__
+      - uses: pnpm/action-setup@__ACTION[pnpm/action-setup]__
+      - uses: actions/setup-node@__ACTION[actions/setup-node]__
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint --format github
+      - run: pnpm format:check
+      - run: pnpm typecheck
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@__ACTION[actions/checkout]__
+      - uses: pnpm/action-setup@__ACTION[pnpm/action-setup]__
+      - uses: actions/setup-node@__ACTION[actions/setup-node]__
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Unit tests, and every package's stories as browser tests in headless Chromium.
+      - run: pnpm --filter __UI_PKG__ exec playwright install --with-deps chromium
+      - run: pnpm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@__ACTION[actions/checkout]__
+      - uses: pnpm/action-setup@__ACTION[pnpm/action-setup]__
+      - uses: actions/setup-node@__ACTION[actions/setup-node]__
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build

@@ -1,0 +1,47 @@
+# Builds apps/__APP_NAME__ and deploys it to Cloudflare Workers (static assets) when it, the shared
+# UI package or the lockfile changes on trunk, or by hand.
+#
+# Needs two repository secrets: CLOUDFLARE_API_TOKEN, a token with the account's
+# "Workers Scripts: Edit" permission, and CLOUDFLARE_ACCOUNT_ID.
+name: Deploy __APP_NAME__
+
+on:
+  push:
+    branches: [trunk]
+    paths:
+      - apps/__APP_NAME__/**
+      - packages/ui/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .github/workflows/deploy-__APP_NAME__.yml
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-__APP_NAME__
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  HUSKY: 0
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@__ACTION[actions/checkout]__
+      - uses: pnpm/action-setup@__ACTION[pnpm/action-setup]__
+      - uses: actions/setup-node@__ACTION[actions/setup-node]__
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter __APP_NAME__ build
+      - name: Deploy
+        working-directory: apps/__APP_NAME__
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm exec wrangler deploy

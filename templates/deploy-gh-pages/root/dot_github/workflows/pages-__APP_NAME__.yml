@@ -1,0 +1,55 @@
+# Builds apps/__APP_NAME__ and publishes it to GitHub Pages when it, the shared UI package or the
+# lockfile changes on trunk, or by hand. Turn Pages on once under Settings → Pages → Source:
+# GitHub Actions. A custom domain goes there too.
+name: Pages __APP_NAME__
+
+on:
+  push:
+    branches: [trunk]
+    paths:
+      - apps/__APP_NAME__/**
+      - packages/ui/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .github/workflows/pages-__APP_NAME__.yml
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+env:
+  HUSKY: 0
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@__ACTION[actions/checkout]__
+      - uses: pnpm/action-setup@__ACTION[pnpm/action-setup]__
+      - uses: actions/setup-node@__ACTION[actions/setup-node]__
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter __APP_NAME__ build
+      - uses: actions/upload-pages-artifact@__ACTION[actions/upload-pages-artifact]__
+        with:
+          path: apps/__APP_NAME__/dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@__ACTION[actions/deploy-pages]__

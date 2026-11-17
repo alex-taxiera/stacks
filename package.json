@@ -1,0 +1,55 @@
+{
+  "name": "@alex-taxiera/stacks",
+  "version": "0.1.0",
+  "description": "Scaffold pnpm workspaces of Chakra UI apps: Vite SPAs, Astro sites, TanStack Start fullstack apps and Tauri desktop apps.",
+  "license": "MIT",
+  "bin": {
+    "stacks": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "templates",
+    "versions.json",
+    "versions.policy.json"
+  ],
+  "type": "module",
+  "scripts": {
+    "stacks": "node src/cli.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "prepare": "husky",
+    "prepack": "pnpm run build",
+    "agents:sync": "node scripts/sync-agents.ts",
+    "postinstall": "pnpm run agents:sync"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.9.0",
+    "semver": "^7.8.6",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/semver": "^7.8.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "oxfmt": "^0.78.0",
+    "oxlint": "^1.93.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}": [
+      "oxlint --fix --no-error-on-unmatched-pattern",
+      "oxfmt --no-error-on-unmatched-pattern"
+    ],
+    "*.{json,jsonc,md,mdx,css,yml,yaml,html,toml}": "oxfmt --no-error-on-unmatched-pattern"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

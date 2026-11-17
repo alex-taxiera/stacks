@@ -1,0 +1,207 @@
+# Keeps versions.json, the known-good snapshot every `stacks new` reads, current.
+#
+# Nightly it resolves the newest allowed version of everything the templates use (respecting
+# versions.policy.json and a three-day minimum release age), splits the changes into groups
+# (storybook, tanstack, chakra…), and scaffolds every case with each group's candidate versions.
+#
+# - A group whose scaffolds all pass, with no major bump, is committed straight to trunk. The
+#   canary is its test, and `stacks new` picks it up from trunk at once.
+# - A passing group with a major bump goes into one "canary/majors" pull request for review,
+#   since a major often wants a template change too.
+# - A failing group gets an issue linking the run. The other groups carry on without it.
+name: Canary
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: canary
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  HUSKY: 0
+
+jobs:
+  plan:
+    name: Resolve newer versions
+    runs-on: ubuntu-latest
+    outputs:
+      groups: ${{ steps.plan.outputs.groups }}
+      cases: ${{ steps.plan.outputs.cases }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - id: plan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p candidates
+          node src/cli.ts versions refresh --json > candidates/all.changes.json
+          for group in $(jq -r '.groups[]' candidates/all.changes.json); do
+            node src/cli.ts versions refresh --group "$group" --json \
+              --out "candidates/$group.json" > "candidates/$group.changes.json"
+          done
+          echo "groups=$(jq -c '.groups' candidates/all.changes.json)" >> "$GITHUB_OUTPUT"
+          echo "cases=$(node scripts/e2e.ts --list)" >> "$GITHUB_OUTPUT"
+          echo "## Newer versions" >> "$GITHUB_STEP_SUMMARY"
+          jq -r '.changes[] | "- **\(.group)** `\(.name)` \(.from // "new") → \(.to)\(if .major then " (major)" else "" end)"' \
+            candidates/all.changes.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: candidates
+          path: candidates
+
+  test:
+    name: ${{ matrix.group }} / ${{ matrix.case }}
+    needs: plan
+    if: needs.plan.outputs.groups != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        group: ${{ fromJSON(needs.plan.outputs.groups) }}
+        case: ${{ fromJSON(needs.plan.outputs.cases) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v8
+        with:
+          name: candidates
+          path: candidates
+      - run: node scripts/e2e.ts --case ${{ matrix.case }} --versions-file candidates/${{ matrix.group }}.json
+      - run: echo ok > passed.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: passed-${{ matrix.group }}-${{ matrix.case }}
+          path: passed.txt
+
+  publish:
+    name: Commit, open a PR, or report
+    needs: [plan, test]
+    if: always() && needs.plan.outputs.groups != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v8
+        with:
+          name: candidates
+          path: candidates
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: passed-*
+          path: passed
+
+      - name: Sort the groups into passed and failed
+        id: sort
+        env:
+          ALL_GROUPS: ${{ needs.plan.outputs.groups }}
+          CASES: ${{ needs.plan.outputs.cases }}
+        run: |
+          minor=(); major=(); failed=()
+          cases=$(echo "$CASES" | jq 'length')
+          for group in $(echo "$ALL_GROUPS" | jq -r '.[]'); do
+            passed=$(find passed -maxdepth 1 -type d -name "passed-$group-*" | wc -l)
+            if [ "$passed" -ne "$cases" ]; then failed+=("$group"); continue; fi
+            majors=$(jq '[.changes[] | select(.major)] | length' "candidates/$group.changes.json")
+            if [ "$majors" -gt 0 ]; then major+=("$group"); else minor+=("$group"); fi
+          done
+          echo "minor=${minor[*]}" >> "$GITHUB_OUTPUT"
+          echo "major=${major[*]}" >> "$GITHUB_OUTPUT"
+          echo "failed=${failed[*]}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit passing minor and patch groups to trunk
+        if: steps.sort.outputs.minor != ''
+        env:
+          PASSED: ${{ steps.sort.outputs.minor }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          files=(); for group in $PASSED; do files+=("candidates/$group.changes.json"); done
+          node src/cli.ts versions apply "${files[@]}"
+          pnpm exec oxfmt versions.json
+          git add versions.json
+          git commit -m "chore(versions): refresh ${PASSED// /, }"
+          git push
+
+      - name: Open or update the pull request for major bumps
+        if: steps.sort.outputs.major != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PASSED: ${{ steps.sort.outputs.major }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin trunk
+          git checkout -B canary/majors origin/trunk
+          files=(); for group in $PASSED; do files+=("candidates/$group.changes.json"); done
+          node src/cli.ts versions apply "${files[@]}"
+          pnpm exec oxfmt versions.json
+          git add versions.json
+          git commit -m "chore(versions)!: major bumps in ${PASSED// /, }"
+          git push --force origin canary/majors
+          {
+            echo "Scaffolds pass with these major bumps. Read the release notes anyway: a template"
+            echo "may want something new, or can drop a workaround."
+            echo
+            jq -rs '[.[].changes[] | select(.major)] | map("- `\(.name)` \(.from) → \(.to)") | join("\n")' "${files[@]}"
+            echo
+            echo "If a template changes for these, bump \`minCliVersion\` in versions.json in the same"
+            echo "PR, so older CLIs keep using their bundled versions."
+          } > body.md
+          gh label create major --color B60205 --force > /dev/null
+          if [ "$(gh pr view canary/majors --json state -q .state 2> /dev/null)" = "OPEN" ]; then
+            gh pr edit canary/majors --body-file body.md
+          else
+            gh pr create --head canary/majors --base trunk --label major \
+              --title "chore(versions)!: major bumps in ${PASSED// /, }" --body-file body.md
+          fi
+
+      - name: Report failing groups
+        if: steps.sort.outputs.failed != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FAILED: ${{ steps.sort.outputs.failed }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create canary --color FBCA04 --force > /dev/null
+          for group in $FAILED; do
+            title="Canary: newer $group versions break a scaffold"
+            {
+              echo "The scaffolds failed with these versions: $RUN"
+              echo
+              jq -r '.changes[] | "- `\(.name)` \(.from // "new") → \(.to)"' "candidates/$group.changes.json"
+              echo
+              echo "Fix the templates, or hold the package back with a \`range\` in versions.policy.json."
+            } > body.md
+            number=$(gh issue list --label canary --state open --search "in:title \"$title\"" --json number -q '.[0].number')
+            if [ -n "$number" ]; then
+              gh issue comment "$number" --body-file body.md
+            else
+              gh issue create --label canary --title "$title" --body-file body.md
+            fi
+          done

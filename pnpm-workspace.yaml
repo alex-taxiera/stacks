@@ -1,0 +1,2 @@
+# Settings only: stacks is one package. Minutes; skip releases younger than three days.
+minimumReleaseAge: 4320
