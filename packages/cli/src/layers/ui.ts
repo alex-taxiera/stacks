@@ -54,6 +54,19 @@ const SNIPPET_COMPONENTS = [
 ];
 
 /**
+ * oxlint's `no-restricted-imports` entry that sends a component with a snippet to the UI package.
+ * A layer that restricts more imports in some files repeats it there, as an override's rule
+ * replaces the base one.
+ */
+export function snippetRestriction(pkg: string) {
+  return {
+    name: "@chakra-ui/react",
+    importNames: SNIPPET_COMPONENTS,
+    message: `Use the snippet from ${pkg} instead (e.g. ${pkg}/tooltip for Tooltip). If it is missing, add it with \`pnpm --filter ${pkg} exec chakra snippet add <name> --tsx --outdir src/components/ui\`.`,
+  };
+}
+
+/**
  * `packages/ui`: the Chakra snippets, theme, provider and shared Storybook preview, and everything
  * at the root that only matters once a repo has UI. The first app that needs it applies it.
  */
@@ -89,6 +102,8 @@ export const ui: Layer = (ctx) => {
           exports: {
             "./theme": "./src/theme.ts",
             "./storybook": "./src/storybook.tsx",
+            "./notify": "./src/notify.ts",
+            "./options": "./src/options.ts",
             "./*": "./src/components/ui/*.tsx",
           },
         },
@@ -106,13 +121,7 @@ export const ui: Layer = (ctx) => {
           "no-restricted-imports": [
             "error",
             {
-              paths: [
-                {
-                  name: "@chakra-ui/react",
-                  importNames: SNIPPET_COMPONENTS,
-                  message: `Use the snippet from ${pkg} instead (e.g. ${pkg}/tooltip for Tooltip). If it is missing, add it with \`pnpm --filter ${pkg} exec chakra snippet add <name> --tsx --outdir src/components/ui\`.`,
-                },
-              ],
+              paths: [snippetRestriction(pkg)],
             },
           ],
         },
@@ -247,6 +256,11 @@ function uiGuide(pkg: string): string {
   \`packages/ui/src/recipes\`, one system for every app. Run \`pnpm --filter ${pkg} typegen\` after
   changing them so their props are typed. Use semantic tokens (\`fg.muted\`, \`bg.subtle\`,
   \`accent.fg\`…) over raw colours so both colour modes work.
+- **Tell the user through a toast** from \`${pkg}/notify\`: \`showError(title, error)\` for anything
+  that failed (it shows the error's message), \`showSuccess\`, \`showInfo\`, \`showWarning\`, and
+  \`showLoading(title, id)\` for work in progress, which a later toast with the same \`id\` replaces.
+- **A select, segmented control or tab list over a string union** narrows the value it reports
+  with \`findOption\` (\`${pkg}/options\`), not a cast.
 
 ### Storybook and its MCP servers
 

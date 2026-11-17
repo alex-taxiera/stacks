@@ -1,9 +1,10 @@
-import { basePreview, resetUi } from "__UI_PKG__/storybook";
+import { previewFor, resetUi } from "__UI_PKG__/storybook";
 import type { Preview } from "@storybook/react-vite";
 import { mocked, sb } from "storybook/test";
 // stacks:slot imports
 
 import { api } from "../src/api.ts";
+import { system } from "../src/theme.ts";
 
 // Storybook has no Tauri backend, so every module that reaches it is mocked. Each export becomes
 // a spy; the defaults below answer as the Rust side would, and a story overrides them with
@@ -15,7 +16,8 @@ sb.mock(import("@tauri-apps/plugin-opener"));
 // stacks:slot mocks
 
 const preview: Preview = {
-  ...basePreview,
+  // The app's own system: the shared theme, and its layer over it (`src/theme.ts`).
+  ...previewFor(system),
   beforeEach: () => {
     mocked(api.greet).mockImplementation(async (name) => ({
       message: `Hello, ${name.trim() || "world"}!`,

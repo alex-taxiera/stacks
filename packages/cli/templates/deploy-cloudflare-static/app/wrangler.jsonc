@@ -3,9 +3,11 @@
   "name": "__APP_NAME__",
   "compatibility_date": "__TODAY__",
   "observability": { "enabled": true },
+  // stacks:slot main
   // The built pages, served as static assets.
   "assets": {
     "directory": "dist",
     // stacks:slot not-found
+    // stacks:slot assets
   },
 }

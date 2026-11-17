@@ -2,6 +2,13 @@ import type { Layer } from "../model.ts";
 import { requireApp, requirePorts, requireUi } from "./require.ts";
 import { CHAKRA, REACT, REACT_TYPES, STORYBOOK, storybookScripts, TYPESCRIPT } from "./shared.ts";
 
+/**
+ * An astro app's `typecheck` script, which an add-on that checks more extends. `astro sync` writes
+ * the content collections' types that `tsc` reads.
+ */
+export const astroTypecheck = (ui: string) =>
+  `pnpm --filter ${ui} typegen && astro sync && tsc --noEmit --runExternalCode`;
+
 /** A site of pages: Astro, with Markdown content and React islands where a page needs them. */
 export const astro: Layer = (ctx) => {
   const app = requireApp(ctx.app);
@@ -27,8 +34,7 @@ export const astro: Layer = (ctx) => {
           // `--runExternalCode` lets tsc run the .astro content mapper in tsconfig.json.
           build: `${typegen} && astro build && tsc --noEmit --runExternalCode`,
           preview: "astro preview",
-          // `astro sync` writes the content collections' types that `tsc` reads.
-          typecheck: `${typegen} && astro sync && tsc --noEmit --runExternalCode`,
+          typecheck: astroTypecheck(ui),
           test: "vitest run",
           ...storybookScripts(storybookPort),
         },

@@ -15,6 +15,7 @@ on:
       - pnpm-workspace.yaml
       - .github/workflows/deploy-__APP_NAME__.yml
   workflow_dispatch:
+  # stacks:slot triggers
 
 concurrency:
   group: deploy-__APP_NAME__
@@ -29,9 +30,11 @@ env:
 jobs:
   deploy:
     name: Build and deploy
+    # stacks:slot job
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@__ACTION[actions/checkout]__
+        # stacks:slot checkout
       - uses: pnpm/action-setup@__ACTION[pnpm/action-setup]__
       - uses: actions/setup-node@__ACTION[actions/setup-node]__
         with:
@@ -39,6 +42,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter __APP_NAME__ build
+        # stacks:slot build-env
       - name: Deploy
         working-directory: apps/__APP_NAME__
         env:

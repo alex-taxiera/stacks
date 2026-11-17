@@ -30,6 +30,8 @@ function sampleCtx(app?: AppInfo): Ctx {
       github: "me/sample",
     },
     ui: { package: "@sample/ui", storybookPort: 6008 },
+    // A desktop app, for the add-ons that serve one.
+    apps: [makeApp(STACKS.tauri, [], { name: "sample-desktop" })],
     versions,
     today: "2026-01-01",
     app,
@@ -48,7 +50,9 @@ function allSpecs(): LayerSpec[] {
       const app = makeApp(stack, [], {
         name: "sample-app",
         deploy,
-        addons: Object.keys(stack.addons),
+        addons: Object.entries(stack.addons)
+          .filter(([, addon]) => !addon.deploys || addon.deploys.includes(deploy))
+          .map(([id]) => id),
       });
       collect([...(stack.needsRust ? [RUST_LAYER] : []), ...appLayers(app)], sampleCtx(app));
     }

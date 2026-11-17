@@ -112,7 +112,7 @@ export function findRoot(start: string): string | undefined {
 
 /** Every layer the repo was made from, with the context each ran in, in the order they ran. */
 function layersOf(file: StacksFile, versions: Snapshot, today: string): [Ctx, Layer[]][] {
-  const base: Ctx = { repo: file.repo, ui: file.ui, versions, today };
+  const base: Ctx = { repo: file.repo, ui: file.ui, apps: file.apps, versions, today };
   const runs: [Ctx, Layer[]][] = [[base, REPO_LAYERS]];
   if (file.ui) runs.push([base, [UI_LAYER]]);
   // The first Rust app made the Cargo workspace, and its layer names that app.
@@ -262,6 +262,7 @@ export async function composeApp(
   const base: Omit<Ctx, "app"> = {
     repo: file.repo,
     ui: file.ui,
+    apps: file.apps,
     versions: options.versions,
     today: options.today,
   };

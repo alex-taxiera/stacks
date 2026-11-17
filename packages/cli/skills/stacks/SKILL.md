@@ -58,6 +58,14 @@ stacks was on npm, use `pnpm dlx @alex-taxiera/stacks` instead.
 | `tauri` | `apps/<name>`     | A Tauri 2 desktop app; the first also makes the Cargo workspace and `crates/core` | `releases`               |
 | `cli`   | `packages/<name>` | A Node CLI published to npm, shipping a skill like this one                       | `npm`                    |
 
+Add-ons go in `--with`; `pnpm stacks list` shows which stack takes which. Some need more than the
+app itself:
+
+- `worker` (spa, astro) needs `--deploy cloudflare`.
+- `downloads` (astro) offers the repo's first tauri app, so add that app first.
+- `titlebar` and `screenshots` (tauri) each bring a skill or AGENTS.md rule that says how to work
+  with them; follow it when you change the app's header or anything a screenshot shows.
+
 Run `add` from anywhere inside the repo, then review `git diff` and commit. It never overwrites a
 file that exists, and it fails if the name is taken.
 

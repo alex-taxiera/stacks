@@ -105,8 +105,8 @@ export function cratesIn(text: string): string[] {
 
 /** Tokens a rendered file still has: a typo, or one the context doesn't define. */
 export function leftoverTokens(text: string): string[] {
-  // Not ours: tauri-action fills __VERSION__ in itself.
-  const known = new Set(["STORYBOOK", "VERSION"]);
+  // Not ours: tauri-action fills __VERSION__ in itself, and Storybook sets its channel global.
+  const known = new Set(["STORYBOOK", "VERSION", "STORYBOOK_ADDONS_CHANNEL"]);
   return [...text.matchAll(TOKEN)]
     .map((match) => match[1] as string)
     .filter((name) => !known.has(name));

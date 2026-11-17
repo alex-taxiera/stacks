@@ -33,7 +33,12 @@ export const deployCloudflareStatic: Layer = (ctx) => {
       {
         region: "rules",
         id: `deploy:${name}`,
-        body: `- **\`apps/${name}\` deploys to Cloudflare Workers** (static assets, \`wrangler.jsonc\`) from \`trunk\` through \`.github/workflows/deploy-${name}.yml\`, which needs the \`CLOUDFLARE_API_TOKEN\` and \`CLOUDFLARE_ACCOUNT_ID\` secrets.`,
+        body: [
+          `- **\`apps/${name}\` deploys to Cloudflare Workers** (static assets, \`wrangler.jsonc\`) from \`trunk\` through \`.github/workflows/deploy-${name}.yml\`, which needs the \`CLOUDFLARE_API_TOKEN\` and \`CLOUDFLARE_ACCOUNT_ID\` secrets.`,
+          `  Each pull request that changes it gets a preview (\`.github/workflows/preview-${name}.yml\`):`,
+          "  a version of the Worker uploaded but not deployed, linked from the run's summary. Previews",
+          "  start working once the first deploy has created the Worker.",
+        ].join("\n"),
       },
     ],
   };

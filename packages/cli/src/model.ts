@@ -55,6 +55,8 @@ export interface Ctx {
   /** Set once the repo has a UI package. */
   ui?: UiInfo;
   versions: Snapshot;
+  /** The repo's apps, as `.stacks.json` lists them: the ones before this one while it's made. */
+  apps: AppInfo[];
   /** Set for app layers; unset for the repo layer `new` applies once. */
   app?: AppInfo;
   /** The day the repo or app is made, for `compatibility_date` and the like. */

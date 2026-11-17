@@ -166,7 +166,14 @@ export default defineConfig(({ command }) => ({
     projects: [
       {
         extends: true,
-        test: { name: "unit", environment: "node", include: ["src/**/*.test.ts"] },
+        test: {
+          name: "unit",
+          environment: "node",
+          include: [
+            "src/**/*.test.ts",
+            // stacks:slot unit-tests
+          ],
+        },
       },
       {
         // Every story is a test: it must render, its play function must pass,

@@ -13,6 +13,11 @@ any of these:
 - `mcp` servers, merged into `.agents/mcp.json`
 - `post` steps run after the files are written (install, build, typegen…)
 
+A layer's `ctx` has the repo, the UI package, the app it builds (`ctx.app`) and the repo's other
+apps (`ctx.apps`, the ones made before it), for an add-on that serves another app, as `downloads`
+serves a tauri app. An add-on that works with only some deploy targets says so with `deploys` in
+`src/stacks.ts`.
+
 Its files live in `packages/cli/templates/<layer id>/{root,ui,app}/`:
 
 - `root` goes to the repo root, `ui` to `packages/ui`, `app` to the app's `dir`.

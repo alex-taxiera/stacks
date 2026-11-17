@@ -11,4 +11,6 @@ export const DESCRIPTION = "__APP_TITLE__: a short description for search result
 export const NAV = [
   { href: "/", label: "Home" },
   { href: "/posts/", label: "Posts" },
+  // stacks:slot nav
 ] as const;
+// stacks:slot config

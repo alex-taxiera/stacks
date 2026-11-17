@@ -13,6 +13,10 @@ export default defineConfig({
   test: {
     projects: [
       {
+        extends: true,
+        test: { name: "unit", environment: "node", include: ["src/**/*.test.ts"] },
+      },
+      {
         // Every story is a test: it must render, its play function must pass,
         // and the a11y addon reports what axe finds.
         extends: true,

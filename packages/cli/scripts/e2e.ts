@@ -83,6 +83,30 @@ const CASES: Record<string, Case> = {
         throw new Error("The template's bindings differ from what ts-rs writes for crates/core");
     },
   },
+  // The app's own title bar, and its screenshots taken from its Storybook.
+  "tauri-titlebar": {
+    commands: [["new", "--stack", "tauri", "--with", "titlebar,updater,screenshots"]],
+    after: [
+      ["cargo", "fmt", "--all", "--check"],
+      ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"],
+      ["pnpm", "--filter", "desktop", "screenshots"],
+    ],
+    verify: (repo) => {
+      for (const scheme of ["light", "dark"]) {
+        const shot = path.join(repo, `docs/screenshots/desktop/app-default-${scheme}.png`);
+        if (!existsSync(shot)) throw new Error(`No screenshot at ${shot}`);
+      }
+    },
+  },
+  // A product site beside its desktop app: a Worker for /api/*, and a download page that builds
+  // even before the app has a release.
+  "astro-downloads": {
+    commands: [
+      ["new", "--stack", "tauri"],
+      ["add", "astro", "site", "--deploy", "cloudflare", "--with", "worker,downloads"],
+    ],
+    after: [["pnpm", "--filter", "site", "exec", "wrangler", "deploy", "--dry-run"]],
+  },
   // A site of pages with islands, on a Worker that answers unknown paths with its 404 page.
   "astro-cloudflare": {
     commands: [["new", "--stack", "astro", "--deploy", "cloudflare"]],

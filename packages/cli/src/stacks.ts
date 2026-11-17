@@ -12,7 +12,8 @@ import { repo } from "./layers/repo.ts";
 import { spa } from "./layers/spa.ts";
 import { astro } from "./layers/astro.ts";
 import { start } from "./layers/start.ts";
-import { addonUpdater, rust, tauri } from "./layers/tauri.ts";
+import { addonScreenshots, addonTitlebar, addonUpdater, rust, tauri } from "./layers/tauri.ts";
+import { addonDownloads, addonWorker } from "./layers/site.ts";
 import { ui } from "./layers/ui.ts";
 import type { AppInfo, Layer, StackId } from "./model.ts";
 
@@ -31,13 +32,20 @@ export interface StackDefinition {
   defaultAppName: string;
   deploys: Record<string, { summary: string; layer: Layer }>;
   defaultDeploy: string;
-  addons: Record<string, { summary: string; layer: Layer }>;
+  /** An add-on with `deploys` works only with those deploy targets. */
+  addons: Record<string, { summary: string; layer: Layer; deploys?: string[] }>;
   layers: Layer[];
 }
 
 const ZUSTAND = {
   summary: "Zustand for state shared between components",
   layer: addonZustand,
+};
+
+const WORKER = {
+  summary: "A Worker in front of the static site, for /api/* routes of your own",
+  layer: addonWorker,
+  deploys: ["cloudflare"],
 };
 
 /** The add-ons the apps with a UI offer. */
@@ -67,7 +75,7 @@ export const STACKS: Record<StackId, StackDefinition> = {
       "gh-pages": { summary: "GitHub Pages", layer: deployGhPages },
     },
     defaultDeploy: "cloudflare",
-    addons: ADDONS,
+    addons: { ...ADDONS, worker: WORKER },
     layers: [spa],
   },
   start: {
@@ -101,7 +109,13 @@ export const STACKS: Record<StackId, StackDefinition> = {
       "gh-pages": { summary: "GitHub Pages", layer: deployGhPages },
     },
     defaultDeploy: "cloudflare",
-    addons: {},
+    addons: {
+      worker: WORKER,
+      downloads: {
+        summary: "A download page for the repo's desktop app, from its latest GitHub release",
+        layer: addonDownloads,
+      },
+    },
     layers: [astro],
   },
   tauri: {
@@ -124,6 +138,14 @@ export const STACKS: Record<StackId, StackDefinition> = {
       updater: {
         summary: "In-app updates from GitHub Releases, signed with a key kept out of the repo",
         layer: addonUpdater,
+      },
+      titlebar: {
+        summary: "A title bar of the app's own, with the window's buttons; macOS keeps its lights",
+        layer: addonTitlebar,
+      },
+      screenshots: {
+        summary: "Screenshots of the app from its Storybook, in light and dark, with a skill",
+        layer: addonScreenshots,
       },
     },
     layers: [tauri],
@@ -161,6 +183,8 @@ export function appLayers(app: AppInfo): Layer[] {
       throw new Error(
         `${app.stack} has no add-on "${id}"; choose from ${Object.keys(stack.addons).join(", ") || "none"}`,
       );
+    if (addon.deploys && !addon.deploys.includes(app.deploy))
+      throw new Error(`the ${id} add-on needs --deploy ${addon.deploys.join(" or ")}`);
     return addon.layer;
   });
   return [...stack.layers, deploy.layer, ...addons];

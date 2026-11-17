@@ -1,87 +1,78 @@
-import { Button, Container, Heading, HStack, Input, Link, Stack, Text } from "@chakra-ui/react";
-import { ColorModeButton } from "__UI_PKG__/color-mode";
+import { Box, Button, Container, Grid, Input, Link, Stack, Text } from "@chakra-ui/react";
 import { Field } from "__UI_PKG__/field";
-import { type FormEvent, type ReactNode, useState } from "react";
+import { showError } from "__UI_PKG__/notify";
+import { type FormEvent, useState } from "react";
 
 import { api } from "#/api";
-// stacks:slot imports
+import { AppHeader } from "#/components/AppHeader";
 
 const TAURI_DOCS = "https://v2.tauri.app/";
 
-/** Controls at the end of the header, before the color mode's. */
-const HEADER_ACTIONS: ReactNode[] = [
-  // stacks:slot header-actions
-];
+/** Runs `work`, and says what went wrong in a toast if it fails. */
+async function attempt(title: string, work: () => Promise<void>) {
+  try {
+    await work();
+  } catch (error) {
+    showError(title, error);
+  }
+}
 
 export function App() {
   const [name, setName] = useState("");
   const [message, setMessage] = useState<string>();
   const [file, setFile] = useState<string | null>(null);
-  const [error, setError] = useState<string>();
-
-  /** Runs `work`, showing what went wrong if it fails. */
-  const attempt = async (work: () => Promise<void>) => {
-    setError(undefined);
-    try {
-      await work();
-    } catch (cause) {
-      setError(String(cause));
-    }
-  };
 
   const greet = (event: FormEvent) => {
     event.preventDefault();
-    void attempt(async () => setMessage((await api.greet(name)).message));
+    void attempt("Couldn't greet you", async () => setMessage((await api.greet(name)).message));
   };
 
   return (
-    <Container maxW="xl" py={12}>
-      <Stack gap={8}>
-        <HStack justify="space-between">
-          <Heading as="h1" size="2xl">
-            __APP_TITLE__
-          </Heading>
-          <HStack gap={2}>
-            {HEADER_ACTIONS}
-            <ColorModeButton />
-          </HStack>
-        </HStack>
+    // The header stays put; the rest scrolls under it.
+    <Grid templateRows="auto 1fr" h="100dvh">
+      <AppHeader />
+      <Box as="main" overflowY="auto" minH="0">
+        <Container maxW="xl" py={12}>
+          <Stack gap={8}>
+            <Stack as="form" gap={4} onSubmit={greet}>
+              <Field label="Your name">
+                <Input value={name} onChange={(event) => setName(event.target.value)} />
+              </Field>
+              <Button type="submit" alignSelf="start">
+                Greet me
+              </Button>
+            </Stack>
+            {message && <Text fontSize="lg">{message}</Text>}
 
-        <Stack as="form" gap={4} onSubmit={greet}>
-          <Field label="Your name">
-            <Input value={name} onChange={(event) => setName(event.target.value)} />
-          </Field>
-          <Button type="submit" alignSelf="start">
-            Greet me
-          </Button>
-        </Stack>
-        {message && <Text fontSize="lg">{message}</Text>}
+            <Stack gap={2} align="start">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  void attempt("Couldn't open the file picker", async () =>
+                    setFile(await api.chooseFile()),
+                  )
+                }
+              >
+                Choose a file
+              </Button>
+              {file && <Text wordBreak="break-all">You chose {file}</Text>}
+            </Stack>
 
-        <Stack gap={2} align="start">
-          <Button
-            variant="outline"
-            onClick={() => void attempt(async () => setFile(await api.chooseFile()))}
-          >
-            Choose a file
-          </Button>
-          {file && <Text wordBreak="break-all">You chose {file}</Text>}
-        </Stack>
-
-        {error && <Text color="fg.error">{error}</Text>}
-
-        <Text color="fg.muted" fontSize="sm">
-          The greeting comes from Rust: <code>crates/core</code>, through a Tauri command.{" "}
-          <Link
-            href={TAURI_DOCS}
-            onClick={(event) => {
-              event.preventDefault();
-              void api.openInBrowser(TAURI_DOCS);
-            }}
-          >
-            Tauri's docs
-          </Link>
-        </Text>
-      </Stack>
-    </Container>
+            <Text color="fg.muted" fontSize="sm">
+              The greeting comes from Rust: <code>crates/core</code>, through a Tauri command.{" "}
+              <Link
+                href={TAURI_DOCS}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void api.openInBrowser(TAURI_DOCS);
+                }}
+              >
+                Tauri's docs
+              </Link>
+            </Text>
+          </Stack>
+        </Container>
+      </Box>
+    </Grid>
   );
 }

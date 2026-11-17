@@ -13,6 +13,7 @@ on:
       - pnpm-workspace.yaml
       - .github/workflows/pages-__APP_NAME__.yml
   workflow_dispatch:
+  # stacks:slot triggers
 
 concurrency:
   group: pages
@@ -29,9 +30,11 @@ env:
 jobs:
   build:
     name: Build
+    # stacks:slot job
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@__ACTION[actions/checkout]__
+        # stacks:slot checkout
       - uses: pnpm/action-setup@__ACTION[pnpm/action-setup]__
       - uses: actions/setup-node@__ACTION[actions/setup-node]__
         with:
@@ -39,6 +42,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter __APP_NAME__ build
+        # stacks:slot build-env
       - uses: actions/upload-pages-artifact@__ACTION[actions/upload-pages-artifact]__
         with:
           path: apps/__APP_NAME__/dist

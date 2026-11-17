@@ -9,6 +9,7 @@ import {
   TYPESCRIPT,
   VITE_REACT,
 } from "./shared.ts";
+import { snippetRestriction } from "./ui.ts";
 
 /** The libraries Tauri builds against on Linux. */
 const TAURI_LINUX_LIBRARIES = "libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf";
@@ -39,9 +40,16 @@ export const rust: Layer = (ctx) => {
             "runs-on": "ubuntu-latest",
             steps: [
               { uses: "actions/checkout@__ACTION[actions/checkout]__" },
+              // Ubuntu's mirrors are sometimes out of reach from a runner: retry, and give up in
+              // minutes rather than waiting out the job.
               {
                 name: "Install the libraries Tauri builds against",
-                run: `sudo apt-get update && sudo apt-get install -y ${TAURI_LINUX_LIBRARIES}`,
+                "timeout-minutes": 10,
+                run: [
+                  `echo 'Acquire::Retries "3";' | sudo tee /etc/apt/apt.conf.d/80-retries`,
+                  "sudo apt-get update",
+                  `sudo apt-get install -y ${TAURI_LINUX_LIBRARIES}`,
+                ].join("\n"),
               },
               // A toolchain channel, not a version: the action's branches are named for them.
               {
@@ -122,6 +130,8 @@ export const tauri: Layer = (ctx) => {
           dev: `${typegen} && vite`,
           build: `${typegen} && tsc --noEmit && vite build`,
           tauri: "tauri",
+          // Every installer icon, from app-icon.svg.
+          icons: "node scripts/icons.ts",
           typecheck: `${typegen} && tsc --noEmit`,
           test: "vitest run",
           ...storybookScripts(storybookPort),
@@ -143,6 +153,7 @@ export const tauri: Layer = (ctx) => {
           "  - The front end calls Rust only through `src/api.ts`, which Storybook mocks",
           "    (`.storybook/preview.tsx`), as it does every `@tauri-apps/*` module the app uses.",
           "  - Plugins: dialog (the system's file pickers) and opener (links in the browser), through `api`.",
+          `  - \`pnpm --filter ${app.name} icons\` draws every installer icon from \`app-icon.svg\`.`,
           "  - What the window may do is in `src-tauri/capabilities/`: grant a command or plugin there,",
           "    narrowly, before using it. The content security policy is in `tauri.conf.json`.",
         ].join("\n"),
@@ -157,7 +168,7 @@ export const tauri: Layer = (ctx) => {
       {
         title: `Drawing ${app.name}'s icons`,
         command: "pnpm",
-        args: ["--filter", app.name, "tauri", "icon", "app-icon.svg"],
+        args: ["--filter", app.name, "icons"],
         needsInstall: true,
       },
     ],
@@ -251,12 +262,18 @@ export const addonUpdater: Layer = (ctx) => {
     [`${app.dir}/src-tauri/src/lib.rs`]: {
       plugins: [
         "#[cfg(desktop)]",
-        "let builder = builder",
-        "    .plugin(tauri_plugin_process::init())",
-        "    .plugin(tauri_plugin_updater::Builder::new().build());",
+        "let builder = {",
+        "    // Its requests to GitHub name the app and its version, not the plugin.",
+        '    const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));',
+        "    let updater = tauri_plugin_updater::Builder::new()",
+        '        .header("User-Agent", USER_AGENT)',
+        '        .expect("the User-Agent is a valid header")',
+        "        .build();",
+        "    builder.plugin(tauri_plugin_process::init()).plugin(updater)",
+        "};",
       ],
     },
-    [`${app.dir}/src/App.tsx`]: {
+    [`${app.dir}/src/components/AppHeader.tsx`]: {
       imports: ['import { UpdateButton } from "#/components/UpdateButton";'],
       "header-actions": ['<UpdateButton key="update" />,'],
     },
@@ -310,7 +327,6 @@ export const addonUpdater: Layer = (ctx) => {
       [`${app.dir}/src-tauri/capabilities/default.json`]: {
         permissions: ["updater:default", "process:allow-restart"],
       },
-      [`${app.dir}/tsconfig.json`]: { include: ["scripts"] },
     },
     slots,
     agents: [
@@ -332,6 +348,183 @@ export const addonUpdater: Layer = (ctx) => {
         command: "pnpm",
         args: ["--filter", app.name, "updater:keys"],
         needsInstall: true,
+      },
+    ],
+  };
+};
+
+/**
+ * A title bar of the app's own: on Windows and Linux the native one is off and `AppHeader` draws
+ * it, with the window's buttons and room to drag it by; on macOS the native traffic lights sit over
+ * the header. Dialogs open below the header and leave it usable.
+ */
+export const addonTitlebar: Layer = (ctx): LayerSpec => {
+  const app = requireApp(ctx.app);
+  const ui = requireUi(ctx).package;
+  const src = `${app.dir}/src`;
+  return {
+    id: "addon-titlebar",
+    slots: {
+      [`${app.dir}/src-tauri/src/lib.rs`]: {
+        "main-window": [
+          "// On Windows and Linux the app's header is the title bar; macOS keeps its own, under the",
+          "// header, with the traffic lights over its start. The page learns which before it loads",
+          "// (`appWindow.ts`), rather than guessing from the user agent.",
+          'let frame = if cfg!(target_os = "macos") { "mac" } else { "custom" };',
+          "let window = window",
+          '    .decorations(cfg!(target_os = "macos"))',
+          "    .initialization_script(format!(",
+          '        "Object.defineProperty(window, \\"__appWindowFrame\\", {{ value: \\"{frame}\\" }});"',
+          "    ));",
+          '#[cfg(target_os = "macos")]',
+          "let window = window.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);",
+        ],
+      },
+      [`${src}/components/AppHeader.tsx`]: {
+        imports: [
+          'import { windowFrame } from "#/appWindow";',
+          'import { WindowControls } from "#/components/WindowControls";',
+          'import { HEADER_HEIGHT, headerProps } from "#/layout";',
+        ],
+        "header-setup": ["const frame = windowFrame();"],
+        "header-props": [
+          "{...headerProps}",
+          "h={HEADER_HEIGHT}",
+          "py={0}",
+          "// The bar is all there is to drag the window by: anywhere on it but its buttons.",
+          'data-tauri-drag-region="deep"',
+          "// Room for macOS's traffic lights.",
+          'ps={frame === "mac" ? "20" : undefined}',
+        ],
+        "header-end": ['frame === "custom" && <WindowControls key="window-controls" />,'],
+      },
+      [`${src}/theme.ts`]: {
+        imports: [
+          'import { defineSlotRecipe } from "@chakra-ui/react";',
+          'import { dialogAnatomy } from "@chakra-ui/react/anatomy";',
+          "",
+          'import { BELOW_HEADER } from "#/layout";',
+        ],
+        theme: [
+          "slotRecipes: {",
+          "  // Every dialog opens below the header, which stays usable (`keepHeader`, `layout.ts`).",
+          "  dialog: defineSlotRecipe({",
+          "    slots: dialogAnatomy.keys(),",
+          "    base: { backdrop: BELOW_HEADER, positioner: BELOW_HEADER },",
+          "  }),",
+          "},",
+        ],
+      },
+      [`${app.dir}/.storybook/preview.tsx`]: {
+        imports: [
+          "import {",
+          "  closeWindow,",
+          "  isWindowMaximized,",
+          "  minimizeWindow,",
+          "  onWindowResized,",
+          "  toggleMaximizeWindow,",
+          "  windowFrame,",
+          '} from "../src/appWindow.ts";',
+        ],
+        mocks: [
+          'sb.mock(import("../src/appWindow.ts"));',
+          'sb.mock(import("@tauri-apps/api/window"));',
+        ],
+        defaults: [
+          "// The window as on Windows: the app's own title bar, not maximized.",
+          'mocked(windowFrame).mockReturnValue("custom");',
+          "mocked(isWindowMaximized).mockResolvedValue(false);",
+          "mocked(onWindowResized).mockResolvedValue(() => {});",
+          "mocked(minimizeWindow).mockResolvedValue();",
+          "mocked(toggleMaximizeWindow).mockResolvedValue();",
+          "mocked(closeWindow).mockResolvedValue();",
+        ],
+      },
+    },
+    json: {
+      [`${app.dir}/src-tauri/capabilities/default.json`]: {
+        description:
+          "What the main window may do: the app's own commands, the file picker, opening web links in the browser, and its own title bar's work (dragging, minimizing, maximizing and closing the window), the native one being turned off. Only the main window: a window that shows pages from elsewhere gets its own, narrower capability.",
+        permissions: [
+          "core:window:allow-start-dragging",
+          "core:window:allow-minimize",
+          "core:window:allow-toggle-maximize",
+          "core:window:allow-close",
+        ],
+      },
+      ".oxlintrc.json": {
+        overrides: [
+          {
+            files: [`${src}/**`],
+            rules: {
+              "no-restricted-imports": [
+                "error",
+                {
+                  paths: [
+                    snippetRestriction(ui),
+                    {
+                      name: `${ui}/dialog`,
+                      message: `In apps/${app.name}, import from #/components/ui/dialog, which keeps the app's header usable while a dialog is open.`,
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+          // The app's own dialog wraps the shared one; overrides later in the list win.
+          { files: [`${src}/components/ui/**`], rules: { "no-restricted-imports": "off" } },
+        ],
+      },
+    },
+    agents: [
+      {
+        region: "rules",
+        id: `titlebar:${app.name}`,
+        body: [
+          `- **\`apps/${app.name}\`'s title bar is its own.** On Windows and Linux the native one is off`,
+          "  (`open_main_window` in `src-tauri/src/lib.rs`) and `AppHeader` draws it, with",
+          "  `WindowControls`; on macOS the native traffic lights sit over the header. `src/appWindow.ts`",
+          "  says which (`windowFrame`), and Storybook mocks it as Windows. Dialogs open below the header",
+          "  (`src/theme.ts`) and leave it usable: import them from `#/components/ui/dialog`, never the",
+          "  UI package's (oxlint enforces it). A new window gets nothing from `capabilities/` unless a",
+          "  capability names it.",
+        ].join("\n"),
+      },
+    ],
+  };
+};
+
+/**
+ * The app's screenshots, taken from its own Storybook: every story tagged `screenshot`, in light
+ * and dark, at the window's default size, into `docs/screenshots/<app>`. Storybook already stands
+ * in for Rust and the Tauri plugins, so a scene is just a story.
+ */
+export const addonScreenshots: Layer = (ctx) => {
+  const app = requireApp(ctx.app);
+  return {
+    id: "addon-screenshots",
+    packages: {
+      app: { scripts: { screenshots: "node scripts/screenshots.ts" } },
+    },
+    slots: {
+      [`${app.dir}/src/App.stories.tsx`]: {
+        "default-story": [
+          `// A scene for \`pnpm --filter ${app.name} screenshots\`, the whole window.`,
+          'tags: ["screenshot"],',
+          'parameters: { layout: "fullscreen" },',
+        ],
+      },
+    },
+    agents: [
+      {
+        region: "rules",
+        id: `screenshots:${app.name}`,
+        body: [
+          `- **\`docs/screenshots/${app.name}\` follows the UI.** \`pnpm --filter ${app.name} screenshots\` takes`,
+          "  a picture of every story tagged `screenshot`, in light and dark. A change that alters",
+          "  what one shows (theme, colours, fonts, layout, wording) retakes it in the same commit. The",
+          `  \`screenshots-${app.name}\` skill says how, and how to check each image.`,
+        ].join("\n"),
       },
     ],
   };

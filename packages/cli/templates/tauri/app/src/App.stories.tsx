@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, mocked } from "storybook/test";
+import { expect, mocked, screen, waitFor } from "storybook/test";
 
 import { api } from "#/api";
 
@@ -12,7 +12,9 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {};
+export const Default: Story = {
+  // stacks:slot default-story
+};
 
 export const Greets: Story = {
   play: async ({ canvas, userEvent }) => {
@@ -39,6 +41,8 @@ export const WhenRustFails: Story = {
   },
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Greet me" }));
-    await expect(await canvas.findByText(/the core is unreachable/i)).toBeVisible();
+    // Toasts render in a portal, outside the story's canvas, and animate in.
+    await waitFor(() => expect(screen.getByText("Couldn't greet you")).toBeVisible());
+    await expect(screen.getByText("The core is unreachable")).toBeVisible();
   },
 };

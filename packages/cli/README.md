@@ -50,6 +50,18 @@ take add-ons with `--with`:
   under Docker.
 - `updater` (tauri): in-app updates from the app's own GitHub release, signed with a key that
   `pnpm --filter <app> updater:keys` makes in `~/.tauri`; `--secrets` gives it to GitHub.
+- `titlebar` (tauri): a title bar of the app's own, with the window's buttons, on Windows and
+  Linux; macOS keeps its traffic lights over the header. Dialogs open below it.
+- `screenshots` (tauri): `pnpm --filter <app> screenshots` shoots every story tagged
+  `screenshot` from the app's Storybook, in light and dark, into `docs/screenshots/<app>`, with a
+  skill that says when and how to retake them.
+- `worker` (spa, astro; Cloudflare only): a Worker in front of the static site for `/api/*`
+  routes of your own, with tests and its own types.
+- `downloads` (astro): a download page for the repo's first desktop app, sorting its latest
+  release's installers by system; the site redeploys when the app publishes a release.
+
+A spa or astro app on Cloudflare also gets a preview of each pull request: a version of its Worker
+uploaded but not deployed, linked from the run's summary.
 
 ## Skills that ship with a CLI
 

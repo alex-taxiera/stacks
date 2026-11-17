@@ -10,6 +10,10 @@ import {
   VITE_REACT,
 } from "./shared.ts";
 
+/** A spa's `typecheck` script, which an add-on that checks more extends. */
+export const spaTypecheck = (ui: string) =>
+  `pnpm --filter ${ui} typegen && tsr generate && tsc --noEmit`;
+
 /** A client-only app: Vite, TanStack Router, and every page prerendered to static HTML. */
 export const spa: Layer = (ctx) => {
   const app = requireApp(ctx.app);
@@ -36,7 +40,7 @@ export const spa: Layer = (ctx) => {
           build: `pnpm --filter ${ui} typegen && vite build && tsc --noEmit`,
           preview: "vite preview",
           "generate-routes": "tsr generate",
-          typecheck: `pnpm --filter ${ui} typegen && tsr generate && tsc --noEmit`,
+          typecheck: spaTypecheck(ui),
           test: "vitest run",
           ...storybookScripts(storybookPort),
         },

@@ -449,9 +449,11 @@ describe("tauri --with updater", () => {
     ]);
     expect(await read("apps/desktop/src-tauri/Cargo.toml")).toContain('tauri-plugin-updater = "2"');
     expect(await read("apps/desktop/src-tauri/src/lib.rs")).toContain(
-      "    let builder = builder\n        .plugin(tauri_plugin_process::init())",
+      '        .header("User-Agent", USER_AGENT)',
     );
-    expect(await read("apps/desktop/src/App.tsx")).toContain('  <UpdateButton key="update" />,');
+    expect(await read("apps/desktop/src/components/AppHeader.tsx")).toContain(
+      '  <UpdateButton key="update" />,',
+    );
     const release = await read(".github/workflows/release-desktop.yml");
     expect(release).toContain(
       "          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.DESKTOP_UPDATER_KEY }}",
@@ -477,9 +479,110 @@ describe("tauri --with updater", () => {
   it("leaves no updater code in an app without it", async () => {
     await compose(emptyRepo(), desktop());
     expect(await read("apps/desktop/src-tauri/src/lib.rs")).not.toMatch(/updater|stacks:slot/);
-    expect(await read("apps/desktop/src/App.tsx")).not.toMatch(/UpdateButton|stacks:slot/);
+    expect(await read("apps/desktop/src/components/AppHeader.tsx")).not.toMatch(
+      /UpdateButton|stacks:slot/,
+    );
     const skill = await read(".agents/skills/release-desktop/SKILL.md");
     expect(skill).toContain("git tag desktop@v<version>");
     expect(skill).not.toMatch(/updater|stacks:slot|\n\n\n/);
+  });
+});
+
+describe("tauri --with titlebar,screenshots", () => {
+  it("turns the native title bar off where the app draws its own", async () => {
+    await compose(
+      emptyRepo(),
+      makeApp(STACKS.tauri, [], {
+        name: "desktop",
+        deploy: "releases",
+        addons: ["titlebar", "screenshots"],
+      }),
+    );
+    const lib = await read("apps/desktop/src-tauri/src/lib.rs");
+    expect(lib).toContain(
+      '    let window = window\n        .decorations(cfg!(target_os = "macos"))',
+    );
+    expect(lib).not.toContain("stacks:slot");
+    const conf = await readJson<{ app: { windows: { create: boolean }[] } }>(
+      "apps/desktop/src-tauri/tauri.conf.json",
+    );
+    expect(conf.app.windows).toHaveLength(1);
+    expect(conf.app.windows[0]?.create).toBe(false);
+    const capabilities = await readJson<{ permissions: string[] }>(
+      "apps/desktop/src-tauri/capabilities/default.json",
+    );
+    expect(capabilities.permissions).toContain("core:window:allow-start-dragging");
+    expect(await read("apps/desktop/src/components/AppHeader.tsx")).toContain(
+      'data-tauri-drag-region="deep"',
+    );
+
+    const oxlint = await readJson<{ overrides: { files: string[] }[] }>(".oxlintrc.json");
+    const files = oxlint.overrides.map((override) => override.files.join());
+    // The app's own dialog is exempt, so its override comes after the one that bans the shared.
+    expect(files.indexOf("apps/desktop/src/components/ui/**")).toBeGreaterThan(
+      files.indexOf("apps/desktop/src/**"),
+    );
+
+    expect(await read("apps/desktop/src/App.stories.tsx")).toContain('tags: ["screenshot"],');
+    expect(await read(".agents/skills/screenshots-desktop/SKILL.md")).toContain(
+      "name: screenshots-desktop",
+    );
+  });
+
+  it("leaves the window to Tauri without it", async () => {
+    await compose(emptyRepo(), desktop());
+    const lib = await read("apps/desktop/src-tauri/src/lib.rs");
+    expect(lib).toContain("open_main_window(app)?;");
+    expect(lib).not.toMatch(/decorations|stacks:slot/);
+  });
+});
+
+describe("astro --with worker,downloads", () => {
+  it("puts a Worker in front of /api/* and a download page for the desktop app", async () => {
+    const first = await compose(emptyRepo(), desktop());
+    const site = makeApp(STACKS.astro, first.file.apps, {
+      name: "site",
+      deploy: "cloudflare",
+      addons: ["worker", "downloads"],
+    });
+    await compose(first.file, site);
+
+    const wrangler = await read("apps/site/wrangler.jsonc");
+    expect(wrangler).toContain('"main": "worker/index.ts",');
+    expect(wrangler).toContain('"run_worker_first": ["/api/*"],');
+    expect(await read("apps/site/package.json")).toContain(
+      "tsc --noEmit --runExternalCode && pnpm run typecheck:worker",
+    );
+
+    const config = await read("apps/site/src/site-config.ts");
+    expect(config).toContain('{ href: "/download/", label: "Download" },');
+    expect(config).toContain('export const DESKTOP_APP = { name: "desktop", title: "Desktop" }');
+
+    const deploy = parse(await read(".github/workflows/deploy-site.yml"));
+    expect(deploy.on.release).toEqual({ types: ["published"] });
+    expect(deploy.jobs.deploy.if).toContain(
+      "startsWith(github.event.release.tag_name, 'desktop@v')",
+    );
+    expect(await read(".github/workflows/preview-site.yml")).toContain(
+      "GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}",
+    );
+  });
+
+  it("refuses a download page with no desktop app, and a Worker off Cloudflare", async () => {
+    const downloads = makeApp(STACKS.astro, [], { name: "site", addons: ["downloads"] });
+    await expect(compose(emptyRepo(), downloads)).rejects.toThrow(/add a tauri app first/);
+    const worker = makeApp(STACKS.astro, [], {
+      name: "site",
+      deploy: "gh-pages",
+      addons: ["worker"],
+    });
+    await expect(compose(emptyRepo(), worker)).rejects.toThrow(/needs --deploy cloudflare/);
+  });
+
+  it("gives a site on Cloudflare pull request previews", async () => {
+    await compose(emptyRepo(), makeApp(STACKS.astro, [], { name: "site", deploy: "cloudflare" }));
+    const preview = await read(".github/workflows/preview-site.yml");
+    expect(preview).toContain("wrangler versions upload --preview-alias");
+    expect(preview).not.toContain("stacks:slot");
   });
 });
