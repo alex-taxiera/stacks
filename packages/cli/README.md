@@ -50,6 +50,9 @@ take add-ons with `--with`:
 - `zustand` (spa, start, tauri): a store for state components share.
 - `sentry` (spa, start): errors and performance from the browser, and from a `start` app's server
   under Docker.
+- `backups` (start; Docker only): production Postgres archives its WAL and backs up to an S3
+  bucket with pgBackRest, so it can be restored to any moment; `scripts/restore.sh` restores, and
+  a `restore-<app>` skill says how.
 - `updater` (tauri): in-app updates from the app's own GitHub release, signed with a key that
   `pnpm --filter <app> updater:keys` makes in `~/.tauri`; `--secrets` gives it to GitHub.
 - `titlebar` (tauri): a title bar of the app's own, with the window's buttons, on Windows and

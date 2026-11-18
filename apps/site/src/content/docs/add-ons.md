@@ -19,6 +19,15 @@ target or the repo rules out.
 - **`zustand`** (spa, start, tauri): a store for state that components share.
 - **`sentry`** (spa, start): errors and performance from the browser, and from a `start` app's
   server under Docker.
+- **`backups`** (start): Postgres backups to an S3 bucket with pgBackRest. Needs
+  `--deploy docker`.
+  - In production, Postgres archives its WAL and a `backup` service takes a full backup weekly
+    and a differential one every 12 hours, so the database can go back to any moment.
+  - Development keeps plain Postgres and needs no bucket.
+  - Any S3-compatible store works: AWS, R2, B2, MinIO. Set `BACKUP_S3_*` on the server, as the
+    app's `docker/postgres/README.md` says.
+  - `scripts/restore.sh` restores, and a `restore-<app>` skill tells agents how to choose a
+    target and check the result.
 - **`worker`** (spa, astro): a Worker in front of the static site for `/api/*` routes of your own.
   It comes with tests and its own types, and only the paths in `run_worker_first` reach it.
   Needs `--deploy cloudflare`.
