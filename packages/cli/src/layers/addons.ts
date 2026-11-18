@@ -112,6 +112,104 @@ export const addonZustand: Layer = (ctx) => {
   };
 };
 
+/**
+ * Postgres backups with pgBackRest, for a start app on Docker: in production, Postgres archives its
+ * WAL to an S3 repository and a `backup` service takes full and differential backups, so the
+ * database can be restored to any moment. Development keeps the plain image and needs no bucket.
+ * A restore script and a skill cover getting it back.
+ */
+export const addonBackups: Layer = (ctx) => {
+  const app = requireApp(ctx.app);
+  const image = `${ctx.repo.name}-${app.name}-postgres`;
+  const build = { context: "docker/postgres" };
+  // Compose fills these in from the environment or `.env`; they aren't JavaScript templates.
+  const repository = {
+    PGBACKREST_REPO1_S3_BUCKET: "${BACKUP_S3_BUCKET:?set the backup bucket}",
+    PGBACKREST_REPO1_S3_KEY: "${BACKUP_S3_KEY:?set the backup bucket's access key id}",
+    PGBACKREST_REPO1_S3_KEY_SECRET: "${BACKUP_S3_KEY_SECRET:?set the backup bucket's secret key}",
+    PGBACKREST_REPO1_S3_ENDPOINT: "${BACKUP_S3_ENDPOINT:-s3.amazonaws.com}",
+    PGBACKREST_REPO1_S3_REGION: "${BACKUP_S3_REGION:-us-east-1}",
+    PGBACKREST_REPO1_S3_URI_STYLE: "${BACKUP_S3_URI_STYLE:-host}",
+    // pgBackRest connects over the socket, which the official image trusts, as the app's user.
+    PGBACKREST_PG1_USER: "${POSTGRES_USER:-postgres}",
+  };
+  const socket = "postgres-socket:/var/run/postgresql";
+  return {
+    id: "addon-backups",
+    yaml: {
+      [`${app.dir}/compose.prod.yaml`]: {
+        services: {
+          postgres: {
+            build,
+            image,
+            command: [
+              "postgres",
+              "-c",
+              "archive_mode=on",
+              "-c",
+              "archive_command=pgbackrest --stanza=main archive-push %p",
+            ],
+            environment: repository,
+            volumes: [socket],
+          },
+          // Backs up on a schedule (docker/postgres/backup.sh), reading the data directory and
+          // reaching Postgres through its socket.
+          backup: {
+            build,
+            image,
+            user: "postgres",
+            entrypoint: ["backup.sh"],
+            restart: "unless-stopped",
+            environment: {
+              ...repository,
+              BACKUP_INTERVAL: "${BACKUP_INTERVAL:-43200}",
+              BACKUP_FULL_EVERY_DAYS: "${BACKUP_FULL_EVERY_DAYS:-7}",
+            },
+            volumes: ["postgres-data:/var/lib/postgresql:ro", socket],
+            depends_on: { postgres: { condition: "service_healthy" } },
+          },
+        },
+        volumes: { "postgres-socket": {} },
+      },
+      ".github/workflows/ci.yml": {
+        jobs: {
+          [`docker-${app.name}`]: {
+            steps: [{ run: `docker build ${app.dir}/docker/postgres` }],
+          },
+        },
+      },
+    },
+    slots: {
+      [`${app.dir}/scripts/deploy.sh`]: {
+        services: ["docker compose up -d backup"],
+      },
+    },
+    lines: {
+      [`${app.dir}/README.md`]: [
+        "",
+        "## Backups",
+        "",
+        "Production Postgres backs up to S3 with pgBackRest, and can be restored to any moment since",
+        "the oldest backup. `docker/postgres/README.md` says how to set it up, look at the backups and",
+        "restore; `scripts/restore.sh` restores.",
+      ],
+    },
+    agents: [
+      {
+        region: "rules",
+        id: `backups:${app.name}`,
+        body: [
+          `- **\`apps/${app.name}\`'s production database backs up with pgBackRest** to an S3 bucket: Postgres`,
+          "  archives its WAL, and the `backup` service takes the backups (`docker/postgres`). To",
+          `  restore, check the backups, or fix the \`backup\` service, load the \`restore-${app.name}\` skill`,
+          `  (\`.agents/skills/restore-${app.name}\`). Never restore, or run \`scripts/restore.sh\`, without the`,
+          "  user's yes: it replaces the database.",
+        ].join("\n"),
+      },
+    ],
+  };
+};
+
 /** Sentry's browser setup: errors and page-load timings, once the build has a DSN. */
 const sentryBrowserInit = (indent = "") =>
   [

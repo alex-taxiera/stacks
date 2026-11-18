@@ -8,7 +8,7 @@
 //   node scripts/e2e.ts --case spa-multi --keep      keep the scaffold to look at
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { parseArgs } from "node:util";
@@ -113,16 +113,18 @@ const CASES: Record<string, Case> = {
     after: [["pnpm", "--filter", "site", "exec", "wrangler", "deploy", "--dry-run"]],
   },
   // A start app added beside a spa: it shares packages/ui and takes the next ports. Its image
-  // builds from the repo root, migrate stage included.
+  // builds from the repo root, migrate stage included. Its production database backs up, and
+  // restore.sh brings back an emptied one.
   "spa-then-start": {
     commands: [
       ["new", "--stack", "spa", "--app", "site", "--deploy", "cloudflare"],
-      ["add", "start", "web", "--deploy", "docker", "--with", "sentry"],
+      ["add", "start", "web", "--deploy", "docker", "--with", "sentry,backups"],
     ],
     after: [
       ["docker", "build", "--file", "apps/web/Dockerfile", "--target", "migrate", "."],
       ["docker", "build", "--file", "apps/web/Dockerfile", "."],
     ],
+    verify: (repo) => verifyBackups(path.join(repo, "apps/web")),
   },
 };
 
@@ -158,6 +160,101 @@ function sh(command: string, args: string[], cwd: string) {
   );
   if (result.status !== 0)
     throw new Error(`${command} ${args.join(" ")} exited with ${result.status}`);
+}
+
+/** Runs a command without a shell, so arguments keep their spaces; returns whether it passed. */
+function run(
+  command: string,
+  args: string[],
+  cwd: string,
+  env: Record<string, string> = {},
+  { capture = false, check = true } = {},
+) {
+  console.log(`\n$ ${command} ${args.join(" ")}   (in ${cwd})`);
+  const result = spawnSync(command, args, {
+    cwd,
+    stdio: capture ? ["ignore", "pipe", "inherit"] : "inherit",
+    encoding: "utf8",
+    env: { ...process.env, ...env },
+  });
+  if (check && result.status !== 0)
+    throw new Error(`${command} ${args.join(" ")} exited with ${result.status}`);
+  return { ok: result.status === 0, output: result.stdout ?? "" };
+}
+
+/** Checks `done` every two seconds until it's true, for up to `seconds`. */
+function waitFor(what: string, done: () => boolean, seconds = 180) {
+  for (let waited = 0; !done(); waited += 2) {
+    if (waited >= seconds) throw new Error(`Gave up waiting for ${what}`);
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2000);
+  }
+}
+
+/**
+ * The backups add-on, in the production Compose project with a repository on disk in place of S3
+ * (which needs a bucket and TLS): the `backup` service sets up the stanza and takes a full backup,
+ * then `restore.sh` brings back a data directory that was emptied.
+ */
+function verifyBackups(app: string) {
+  // On the socket's volume, the one both services share and the postgres user can write.
+  const repository = {
+    PGBACKREST_REPO1_TYPE: "posix",
+    PGBACKREST_REPO1_PATH: "/var/run/postgresql/backups",
+  };
+  writeFileSync(
+    path.join(app, "compose.override.yaml"),
+    JSON.stringify({
+      services: { postgres: { environment: repository }, backup: { environment: repository } },
+    }),
+  );
+  const env = {
+    COMPOSE_PROJECT_NAME: "stacks-e2e-backups",
+    // restore.sh's COMPOSE_FILE separates files with ":", as on Linux; Windows' default is ";".
+    COMPOSE_PATH_SEPARATOR: ":",
+    BACKUP_S3_BUCKET: "unused",
+    BACKUP_S3_KEY: "unused",
+    BACKUP_S3_KEY_SECRET: "unused",
+    BETTER_AUTH_URL: "http://localhost",
+    BETTER_AUTH_SECRET: "end-to-end-tests-only-not-a-real-secret",
+    APP_HOST: "localhost",
+  };
+  // restore.sh sets COMPOSE_FILE itself, the same way.
+  const files = ["-f", "compose.yaml", "-f", "compose.prod.yaml", "-f", "compose.override.yaml"];
+  const compose = (args: string[], options?: { capture?: boolean; check?: boolean }) =>
+    run("docker", ["compose", ...files, ...args], app, env, options);
+  const psql = (sql: string) =>
+    compose(["exec", "-T", "postgres", "psql", "-U", "postgres", "-d", "web", "-tAc", sql], {
+      capture: true,
+    }).output.trim();
+  // Over TCP: the entrypoint's first, setup-only server listens on the socket alone.
+  const ready = () =>
+    compose(["exec", "-T", "postgres", "pg_isready", "-q", "-h", "127.0.0.1"], { check: false }).ok;
+  try {
+    compose(["config", "--quiet"]);
+    compose(["up", "-d", "--build", "postgres"]);
+    waitFor("Postgres", ready);
+    psql("CREATE TABLE e2e_restore (note text); INSERT INTO e2e_restore VALUES ('kept')");
+
+    compose(["up", "-d", "backup"]);
+    waitFor("the first backup", () => {
+      const info = compose(
+        ["exec", "-T", "backup", "pgbackrest", "--stanza=main", "--output=json", "info"],
+        { capture: true, check: false },
+      );
+      return info.ok && info.output.includes('"type":"full"');
+    });
+
+    compose(["stop", "backup", "postgres"]);
+    // As a lost volume leaves it: the image's empty PGDATA.
+    const asPostgres = ["run", "--rm", "--no-deps", "--user", "postgres", "--entrypoint", "sh"];
+    compose([...asPostgres, "postgres", "-c", 'find "$PGDATA" -mindepth 1 -delete']);
+    run("sh", ["scripts/restore.sh", "--yes"], app, env);
+    waitFor("Postgres after the restore", ready);
+    const note = psql("SELECT note FROM e2e_restore");
+    if (note !== "kept") throw new Error(`The restored database has "${note}", not "kept"`);
+  } finally {
+    compose(["down", "--volumes", "--remove-orphans"], { check: false });
+  }
 }
 
 /** The updater signing keys a scaffold made in ~/.tauri: test keys, not the user's. */

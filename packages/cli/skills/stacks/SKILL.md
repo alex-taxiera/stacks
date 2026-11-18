@@ -71,6 +71,10 @@ Add-ons go in `--with`; `pnpm stacks list` shows which stack takes which. Some n
 app itself:
 
 - `worker` (spa, astro) needs `--deploy cloudflare`.
+- `backups` (start) needs `--deploy docker`. Production Postgres then needs an S3 bucket, which
+  `apps/<name>/docker/postgres/README.md` explains. It brings a `restore-<name>` skill
+  (`.agents/skills/restore-<name>`): load it to restore the database or look into its backups,
+  and never restore without the user's yes.
 - `downloads` (astro) offers the repo's first tauri app, so add that app first. Until then, the
   add-on prompt doesn't offer it.
 - `titlebar` and `screenshots` (tauri) each bring a skill or AGENTS.md rule that says how to work

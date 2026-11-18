@@ -18,8 +18,10 @@ if [ -f compose.override.yaml ]; then
   COMPOSE_FILE="${COMPOSE_FILE}:compose.override.yaml"
 fi
 
-docker compose build migrate app
+# Every image the project builds, add-ons' included.
+docker compose build
 docker compose up -d --remove-orphans postgres proxy
+# stacks:slot services
 docker compose run --rm migrate
 
 # The old container's health check fails once /tmp/drain exists, so Traefik stops sending it

@@ -1,4 +1,4 @@
-import { addonE2e, addonSentry, addonZustand } from "./layers/addons.ts";
+import { addonBackups, addonE2e, addonSentry, addonZustand } from "./layers/addons.ts";
 import { cli } from "./layers/cli.ts";
 import {
   deployCloudflareSsr,
@@ -100,7 +100,14 @@ export const STACKS: Record<StackId, StackDefinition> = {
       },
     },
     defaultDeploy: "docker",
-    addons: ADDONS,
+    addons: {
+      ...ADDONS,
+      backups: {
+        summary: "Postgres backups to S3 with pgBackRest, restorable to any moment, with a skill",
+        layer: addonBackups,
+        deploys: ["docker"],
+      },
+    },
     layers: [start],
   },
   astro: {

@@ -254,7 +254,8 @@ export async function applyLayers(
 
   for (const spec of specs) {
     for (const [file, patch] of Object.entries(spec.yaml ?? {})) {
-      const doc = parseDocument(overlay.read(file) ?? "");
+      // Tags the library doesn't know, such as Compose's `!reset`, are kept as they are; quietly.
+      const doc = parseDocument(overlay.read(file) ?? "", { logLevel: "error" });
       mergeIntoDocument(doc, [], patch);
       // Patches name actions and images the way templates do.
       overlay.write(file, replaceTokens(doc.toString({ lineWidth: 0 }), ctx, file));

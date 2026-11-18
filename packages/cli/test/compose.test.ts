@@ -297,6 +297,57 @@ describe("new --stack start", () => {
   });
 });
 
+describe("start --with backups", () => {
+  it("backs production Postgres up with pgBackRest, and brings a restore skill", async () => {
+    const { overlay } = await compose(emptyRepo(), startApp("docker", ["backups"]));
+    expect(await read("apps/web/docker/postgres/Dockerfile")).toContain(
+      `FROM postgres:${versions.images.postgres}`,
+    );
+    expect(await read("apps/web/docker/postgres/pgbackrest.conf")).toContain("repo1-path=/web");
+    expect(overlay.changed).toContain("apps/web/docker/postgres/backup.sh");
+    expect(overlay.changed).toContain("apps/web/scripts/restore.sh");
+    expect(await read(".agents/skills/restore-web/SKILL.md")).toContain("name: restore-web");
+
+    const prodText = await read("apps/web/compose.prod.yaml");
+    // The merge keeps the file's own tags and comments.
+    expect(prodText).toContain("ports: !reset []");
+    expect(prodText).toContain("# Two replicas run during a rollout");
+    const prod = parse(prodText, { logLevel: "error" }) as {
+      services: Record<string, { image?: string; command?: string[]; volumes?: string[] }>;
+      volumes: Record<string, unknown>;
+    };
+    expect(prod.services.postgres?.image).toBe("demo-web-postgres");
+    expect(prod.services.postgres?.command).toContain(
+      "archive_command=pgbackrest --stanza=main archive-push %p",
+    );
+    expect(prod.services.backup?.volumes).toContain("postgres-data:/var/lib/postgresql:ro");
+    expect(prod.volumes).toHaveProperty("postgres-socket");
+    // Development keeps the plain image.
+    expect(await read("apps/web/compose.yaml")).not.toContain("pgbackrest");
+
+    const deploy = await read("apps/web/scripts/deploy.sh");
+    expect(deploy).toContain("docker compose up -d backup");
+    expect(deploy).not.toContain("stacks:slot");
+    const ci = parse(await read(".github/workflows/ci.yml")) as {
+      jobs: Record<string, { steps: { run?: string }[] }>;
+    };
+    expect(ci.jobs["docker-web"]?.steps.map((step) => step.run)).toContain(
+      "docker build apps/web/docker/postgres",
+    );
+    expect(await read("AGENTS.md")).toContain("`restore-web` skill");
+  });
+
+  it("is only for Docker, and leaves deploy.sh alone without it", async () => {
+    await expect(compose(emptyRepo(), startApp("cloudflare", ["backups"]))).rejects.toThrow(
+      /needs --deploy docker/,
+    );
+    await compose(emptyRepo(), startApp("docker"));
+    const deploy = await read("apps/web/scripts/deploy.sh");
+    expect(deploy).not.toContain("backup");
+    expect(deploy).not.toContain("stacks:slot");
+  });
+});
+
 describe("slots", () => {
   it("are filled by add-ons, and leave no marker behind when they aren't", async () => {
     const { overlay } = await compose(emptyRepo(), startApp("docker", ["sentry"]));
