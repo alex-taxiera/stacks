@@ -8,7 +8,7 @@ description: >
 metadata:
   type: core
   library: "@alex-taxiera/stacks"
-  library_version: "0.2.0"
+  library_version: "0.3.0"
 sources:
   - "packages/cli/src/cli.ts"
   - "packages/cli/src/prompts.ts"
