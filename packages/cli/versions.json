@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "minCliVersion": "0.2.0",
-  "updated": "2026-11-23",
+  "updated": "2026-11-24",
   "node": "24",
   "pnpm": "12.22.0",
   "npm": {
@@ -69,7 +69,7 @@
     "vite": "8.3.8",
     "vite-prerender-plugin": "0.5.14",
     "vitest": "5.1.1",
-    "wrangler": "4.165.0",
+    "wrangler": "4.166.0",
     "zod": "4.6.7",
     "zustand": "5.1.0"
   },
